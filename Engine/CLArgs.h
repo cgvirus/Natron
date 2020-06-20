@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,6 +30,9 @@
 
 #include <list>
 #include <string>
+#include <vector>
+#include <utility>
+
 #include "Global/GlobalDefines.h"
 CLANG_DIAG_OFF(deprecated)
 #include <QtCore/QStringList>
@@ -39,6 +43,7 @@ CLANG_DIAG_ON(deprecated)
 #if !defined(Q_MOC_RUN) && !defined(SBK_RUN)
 #include <boost/scoped_ptr.hpp>
 #endif
+
 #include "Engine/EngineFwd.h"
 
 NATRON_NAMESPACE_ENTER
@@ -85,12 +90,6 @@ public:
 
     ~CLArgs();
 
-    /**
-     * @brief Ensures that the command line arguments passed to main are Utf8 encoded. On Windows
-     * the command line arguments must be processed to be safe. 
-     **/
-    static void ensureCommandLineArgsUtf8(int argc, char **argv, std::vector<std::string>* utf8Args);
-
     void operator=(const CLArgs& other);
 
     bool isEmpty() const;
@@ -116,7 +115,9 @@ public:
     bool isInterpreterMode() const;
 
     bool isCacheClearRequestedOnLaunch() const;
-    
+
+    bool isPluginLoadCacheClearRequestedOnLaunch() const;
+
     /*
      * @brief Has a Natron project or Python script been passed to the command line ?
      */

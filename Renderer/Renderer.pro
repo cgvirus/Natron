@@ -1,6 +1,7 @@
 # ***** BEGIN LICENSE BLOCK *****
 # This file is part of Natron <https://natrongithub.github.io/>,
-# Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+# (C) 2018-2020 The Natron developers
+# (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
 #
 # Natron is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,9 +24,14 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += concurrent
 TARGET = NatronRenderer
 CONFIG += console
 CONFIG -= app_bundle
+# Cairo is still the default renderer for Roto
+!enable-osmesa {
+   CONFIG += enable-cairo
+}
 CONFIG += moc
-CONFIG += boost boost-serialization-lib qt cairo python shiboken pyside 
-CONFIG += static-engine static-host-support static-breakpadclient static-libmv static-openmvg static-ceres static-libtess
+CONFIG += boost qt python shiboken pyside osmesa fontconfig
+enable-cairo: CONFIG += cairo
+CONFIG += static-yaml-cpp static-engine static-host-support static-serialization static-breakpadclient static-libmv static-openmvg static-ceres static-libtess
 
 !noexpat: CONFIG += expat
 

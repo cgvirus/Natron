@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -53,10 +54,17 @@ TimeLine::currentFrame() const
     return _currentFrame;
 }
 
+TimelineChangeReasonEnum
+TimeLine::getLastSeekReason() const
+{
+    QMutexLocker l(&_lock);
+    return _lastSeekReason;
+}
+
 void
 TimeLine::seekFrame(SequenceTime frame,
                     bool updateLastCaller,
-                    OutputEffectInstance* caller,
+                    const EffectInstancePtr& caller,
                     TimelineChangeReasonEnum reason)
 {
     if (reason != eTimelineChangeReasonPlaybackSeek) {
@@ -69,6 +77,7 @@ TimeLine::seekFrame(SequenceTime frame,
             _currentFrame = frame;
             changed = true;
         }
+        _lastSeekReason = reason;
     }
 
     if (_project && updateLastCaller) {
@@ -87,6 +96,7 @@ TimeLine::incrementCurrentFrame()
         QMutexLocker l(&_lock);
         ++_currentFrame;
         frame = _currentFrame;
+        _lastSeekReason = eTimelineChangeReasonPlaybackSeek;
     }
     Q_EMIT frameChanged(frame, (int)eTimelineChangeReasonPlaybackSeek);
 }
@@ -99,6 +109,7 @@ TimeLine::decrementCurrentFrame()
         QMutexLocker l(&_lock);
         --_currentFrame;
         frame = _currentFrame;
+        _lastSeekReason = eTimelineChangeReasonPlaybackSeek;
     }
     Q_EMIT frameChanged(frame, (int)eTimelineChangeReasonPlaybackSeek);
 }
@@ -114,6 +125,7 @@ TimeLine::onFrameChanged(SequenceTime frame)
             _currentFrame = frame;
             changed = true;
         }
+        _lastSeekReason = eTimelineChangeReasonUserSeek;
     }
 
     if (changed) {

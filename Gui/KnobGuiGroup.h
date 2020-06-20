@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,13 +41,11 @@ CLANG_DIAG_ON(uninitialized)
 
 #include "Global/GlobalDefines.h"
 
-#include "Engine/Singleton.h"
 #include "Engine/Knob.h"
 #include "Engine/ImagePlaneDesc.h"
 #include "Engine/EngineFwd.h"
 
-#include "Gui/CurveSelection.h"
-#include "Gui/KnobGui.h"
+#include "Gui/KnobGuiWidgets.h"
 #include "Gui/AnimatedCheckBox.h"
 #include "Gui/Label.h"
 #include "Gui/GuiFwd.h"
@@ -54,35 +53,29 @@ CLANG_DIAG_ON(uninitialized)
 NATRON_NAMESPACE_ENTER
 
 class KnobGuiGroup
-    : public KnobGui
+: QObject
+, public KnobGuiWidgets
 {
 GCC_DIAG_SUGGEST_OVERRIDE_OFF
     Q_OBJECT
 GCC_DIAG_SUGGEST_OVERRIDE_ON
 
 public:
-    static KnobGui * BuildKnobGui(KnobIPtr knob,
-                                  KnobGuiContainerI *container)
+    static KnobGuiWidgets * BuildKnobGui(const KnobGuiPtr& knob, ViewIdx view)
     {
-        return new KnobGuiGroup(knob, container);
+        return new KnobGuiGroup(knob, view);
     }
 
-    KnobGuiGroup(KnobIPtr knob,
-                 KnobGuiContainerI *container);
+    KnobGuiGroup(const KnobGuiPtr& knob, ViewIdx view);
 
     virtual ~KnobGuiGroup() OVERRIDE;
-
-    virtual void removeSpecificGui() OVERRIDE FINAL;
 
     void addKnob(const KnobGuiPtr& child);
 
     const std::list<KnobGuiWPtr>& getChildren() const { return _children; }
 
     bool isChecked() const;
-    virtual KnobIPtr getKnob() const OVERRIDE FINAL;
-    TabGroup* getOrCreateTabWidget();
 
-    void removeTabWidget();
 
 public Q_SLOTS:
     void onCheckboxChecked(bool b);
@@ -92,26 +85,23 @@ private:
     void setCheckedInternal(bool checked, bool userRequested);
 
     virtual void createWidget(QHBoxLayout* layout) OVERRIDE FINAL;
-    virtual void _hide() OVERRIDE FINAL;
-    virtual void _show() OVERRIDE FINAL;
-    virtual void setEnabled()  OVERRIDE FINAL;
-    virtual void updateGUI(int dimension) OVERRIDE FINAL;
-    virtual void setDirty(bool /*dirty*/) OVERRIDE FINAL
+    virtual void setWidgetsVisible(bool visible) OVERRIDE FINAL;
+    virtual void setEnabled(const std::vector<bool>& perDimEnabled)  OVERRIDE FINAL;
+    virtual void updateGUI() OVERRIDE FINAL;
+    virtual void reflectMultipleSelection(bool /*dirty*/) OVERRIDE FINAL
     {
     }
+    virtual void reflectSelectionState(bool /*selected*/) OVERRIDE FINAL
+    {
 
-    virtual bool eventFilter(QObject *target, QEvent* e) OVERRIDE FINAL;
-    virtual void setReadOnly(bool /*readOnly*/,
-                             int /*dimension*/) OVERRIDE FINAL
-    {
     }
+    virtual bool eventFilter(QObject *target, QEvent* e) OVERRIDE FINAL;
+
 
 private:
     bool _checked;
     GroupBoxLabel *_button;
     std::list<KnobGuiWPtr> _children;
-    std::vector<std::pair<KnobGuiWPtr, std::vector<int> > > _childrenToEnable; //< when re-enabling a group, what are the children that we should set
-    TabGroup* _tabGroup;
     //enabled too
     KnobGroupWPtr _knob;
 };

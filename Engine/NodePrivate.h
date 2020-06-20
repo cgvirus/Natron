@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,237 +28,64 @@
 
 #include "Global/Macros.h"
 
-#include "Node.h"
+#include <map>
+#include <list>
+#include <bitset>
 
-#include <QtCore/QWaitCondition>
-#include <QtCore/QReadWriteLock>
+GCC_DIAG_UNUSED_LOCAL_TYPEDEFS_OFF
+// /usr/local/include/boost/bind/arg.hpp:37:9: warning: unused typedef 'boost_static_assert_typedef_37' [-Wunused-local-typedef]
+#include <boost/bind.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
+GCC_DIAG_UNUSED_LOCAL_TYPEDEFS_ON
+
+#include <QtCore/QCoreApplication>
 #include <QtCore/QMutex>
+#include <QtCore/QWaitCondition>
+#include <QtCore/QDebug>
 
-#include "Engine/Hash64.h"
+#include "Engine/EffectInstance.h"
+#include "Global/FStreamsSupport.h"
+#include "Engine/Node.h"
+#include "Engine/NodeMetadata.h"
+#include "Engine/KnobTypes.h"
+#include "Engine/KnobFile.h"
+#include "Engine/GenericSchedulerThreadWatcher.h"
+#include "Engine/AppInstance.h"
+#include "Engine/CreateNodeArgs.h"
+#include "Engine/GroupInput.h"
+#include "Engine/NodeGuiI.h"
+#include "Engine/KnobItemsTable.h"
+#include "Engine/NodeGroup.h"
+#include "Engine/NodeGraphI.h"
+#include "Engine/Project.h"
+#include "Engine/ReadNode.h"
+#include "Engine/RenderQueue.h"
+#include "Engine/WriteNode.h"
+
+#include "Serialization/KnobSerialization.h"
+#include "Serialization/NodeSerialization.h"
+#include "Serialization/NodeClipBoard.h"
+#include "Serialization/SerializationIO.h"
+
+#include "Engine/EngineFwd.h"
 
 NATRON_NAMESPACE_ENTER
 
-/*The output node was connected from inputNumber to this...*/
-typedef std::map<NodeWPtr, int > DeactivatedState;
-typedef std::list<Node::KnobLink> KnobLinkList;
+typedef std::map<NodeWPtr, std::list<int> > InternalOutputNodesMap;
+
 typedef std::vector<NodeWPtr> InputsV;
 
 
-class ChannelSelector
-{
-public:
-
-    KnobChoiceWPtr layer;
-
-
-    ChannelSelector()
-        : layer()
-    {
-    }
-
-    ChannelSelector(const ChannelSelector& other)
-    {
-        *this = other;
-    }
-
-    void operator=(const ChannelSelector& other)
-    {
-        layer = other.layer;
-    }
-};
-
-class MaskSelector
-{
-public:
-
-    KnobBoolWPtr enabled;
-    KnobChoiceWPtr channel;
-    mutable QMutex compsMutex;
-    //Stores the components available at build time of the choice menu
-    std::vector<std::pair<ImagePlaneDesc, NodeWPtr> > compsAvailable;
-
-    MaskSelector()
-        : enabled()
-        , channel()
-        , compsMutex()
-        , compsAvailable()
-    {
-    }
-
-    MaskSelector(const MaskSelector& other)
-    {
-        *this = other;
-    }
-
-    void operator=(const MaskSelector& other)
-    {
-        enabled = other.enabled;
-        channel = other.channel;
-        QMutexLocker k(&compsMutex);
-        compsAvailable = other.compsAvailable;
-    }
-};
-
-
-struct PyPlugInfo
-{
-    std::string pluginPythonModule; // the absolute filename of the python script
-
-    //Set to true when the user has edited a PyPlug
-    bool isPyPlug;
-    std::string pyPlugID; //< if this is a pyplug, this is the ID of the Plug-in. This is because the plugin handle will be the one of the Group
-    std::string pyPlugLabel;
-    std::string pyPlugDesc;
-    std::string pyPlugIconFilePath;
-    std::list<std::string> pyPlugGrouping;
-    int pyPlugVersion;
-
-    PyPlugInfo()
-    : isPyPlug(false)
-    , pyPlugVersion(0)
-    {
-
-    }
-};
-
-struct FormatKnob
-{
-    KnobIntWPtr size;
-    KnobDoubleWPtr par;
-    KnobChoiceWPtr formatChoice;
-};
-
-
-struct Node::Implementation
+struct NodePrivate
 {
     Q_DECLARE_TR_FUNCTIONS(Node)
 
 public:
-    Implementation(Node* publicInterface,
+    NodePrivate(Node* publicInterface,
                    const AppInstancePtr& app_,
                    const NodeCollectionPtr& collection,
-                   Plugin* plugin_)
-        : _publicInterface(publicInterface)
-        , group(collection)
-        , precomp()
-        , app(app_)
-        , isPartOfProject(true)
-        , knobsInitialized(false)
-        , inputsInitialized(false)
-        , outputsMutex()
-        , outputs()
-        , guiOutputs()
-        , inputsMutex()
-        , inputs()
-        , guiInputs()
-        , effect()
-        , inputsComponents()
-        , outputComponents()
-        , inputsLabelsMutex()
-        , inputLabels()
-        , scriptName()
-        , label()
-        , cacheID()
-        , deactivatedState()
-        , activatedMutex()
-        , activated(true)
-        , plugin(plugin_)
-        , pyPluginInfoMutex()
-        , pyPlugInfo()
-        , computingPreview(false)
-        , previewThreadQuit(false)
-        , computingPreviewMutex()
-        , pluginInstanceMemoryUsed(0)
-        , memoryUsedMutex()
-        , mustQuitPreview(0)
-        , mustQuitPreviewMutex()
-        , mustQuitPreviewCond()
-        , renderInstancesSharedMutex(QMutex::Recursive)
-        , knobsAge(0)
-        , knobsAgeMutex()
-        , masterNodeMutex()
-        , masterNode()
-        , nodeLinks()
-#ifdef NATRON_ENABLE_IO_META_NODES
-        , ioContainer()
-#endif
-        , frameIncrKnob()
-        , nodeSettingsPage()
-        , nodeLabelKnob()
-        , previewEnabledKnob()
-        , disableNodeKnob()
-        , infoPage()
-        , nodeInfos()
-        , refreshInfoButton()
-        , useFullScaleImagesWhenRenderScaleUnsupported()
-        , forceCaching()
-        , hideInputs()
-        , beforeFrameRender()
-        , beforeRender()
-        , afterFrameRender()
-        , afterRender()
-        , enabledChan()
-        , channelsSelectors()
-        , maskSelectors()
-        , rotoContext()
-        , trackContext()
-        , imagesBeingRenderedMutex()
-        , imagesBeingRenderedCond()
-        , imagesBeingRendered()
-        , supportedDepths()
-        , isMultiInstance(false)
-        , multiInstanceParent()
-        , childrenMutex()
-        , children()
-        , multiInstanceParentName()
-        , keyframesDisplayedOnTimeline(false)
-        , lastRenderStartedMutex()
-        , lastRenderStartedSlotCallTime()
-        , renderStartedCounter(0)
-        , inputIsRenderingCounter(0)
-        , lastInputNRenderStartedSlotCallTime()
-        , nodeIsDequeuing(false)
-        , nodeIsDequeuingMutex()
-        , nodeIsDequeuingCond()
-        , nodeIsRendering(0)
-        , nodeIsRenderingMutex()
-        , persistentMessage()
-        , persistentMessageType(0)
-        , persistentMessageMutex()
-        , guiPointer()
-        , nativeOverlays()
-        , nodeCreated(false)
-        , wasCreatedSilently(false)
-        , createdComponentsMutex()
-        , createdComponents()
-        , paintStroke()
-        , pluginsPropMutex()
-        , pluginSafety(eRenderSafetyInstanceSafe)
-        , currentThreadSafety(eRenderSafetyInstanceSafe)
-        , currentSupportTiles(false)
-        , currentSupportOpenGLRender(ePluginOpenGLRenderSupportNone)
-        , currentSupportSequentialRender(eSequentialPreferenceNotSequential)
-        , currentCanTransform(false)
-        , draftModeUsed(false)
-        , mustComputeInputRelatedData(true)
-        , duringPaintStrokeCreation(false)
-        , lastStrokeMovementMutex()
-        , strokeBitmapCleared(false)
-        , useAlpha0ToConvertFromRGBToRGBA(false)
-        , isBeingDestroyedMutex()
-        , isBeingDestroyed(false)
-        , inputModifiedRecursion(0)
-        , inputsModified()
-        , refreshIdentityStateRequestsCount(0)
-        , isRefreshingInputRelatedData(false)
-        , streamWarnings()
-        , requiresGLFinishBeforeRender(false)
-        , hostChannelSelectorEnabled(false)
-    {
-        ///Initialize timers
-        gettimeofday(&lastRenderStartedSlotCallTime, 0);
-        gettimeofday(&lastInputNRenderStartedSlotCallTime, 0);
-    }
+                const PluginPtr& plugin_);
 
     void abortPreview_non_blocking();
 
@@ -272,216 +100,222 @@ public:
         computingPreview = v;
     }
 
-    void restoreUserKnobsRecursive(const std::list<KnobSerializationBasePtr>& knobs,
-                                   const KnobGroupPtr& group,
-                                   const KnobPagePtr& page);
-
-    void restoreKnobLinksRecursive(const GroupKnobSerialization* group,
-                                   const NodesList & allNodes,
-                                   const std::map<std::string, std::string>& oldNewScriptNamesMapping);
-
-    void ifGroupForceHashChangeOfInputs();
-
     void runOnNodeCreatedCB(bool userEdited);
 
     void runOnNodeDeleteCB();
+
+    bool figureOutCallbackName(const std::string& inCallback, std::string* outCallback);
+
+    void runChangedParamCallback(const std::string& cb, const KnobIPtr& k, bool userEdited);
 
     void runOnNodeCreatedCBInternal(const std::string& cb, bool userEdited);
 
     void runOnNodeDeleteCBInternal(const std::string& cb);
 
-
-    void appendChild(const NodePtr& child);
-
     void runInputChangedCallback(int index, const std::string& script);
 
-    void createChannelSelector(int inputNb, const std::string & inputName, bool isOutput, const KnobPagePtr& page, KnobIPtr* lastKnobBeforeAdvancedOption);
+    void runAfterItemsSelectionChangedCallback(const std::string& script, const KnobItemsTablePtr& table, const std::list<KnobTableItemPtr>& deselected, const std::list<KnobTableItemPtr>& selected, TableChangeReasonEnum reason);
 
-    void onLayerChanged(int inputNb, const ChannelSelector& selector);
+    void refreshDefaultPagesOrder();
 
-    void onMaskSelectorChanged(int inputNb, const MaskSelector& selector);
-
-    ImagePlaneDesc getSelectedLayerInternal(int inputNb, const std::list<ImagePlaneDesc>& availableLayers, const ChannelSelector& selector) const;
+    void refreshDefaultViewerKnobsOrder();
 
 
+
+    ////////////////////////////////////////////////
+
+    // Ptr to public interface, can not be a smart ptr
     Node* _publicInterface;
+
+    // If this node is an output node, this is a pointer to the render engine.
+    // This is the object that schedules playback, renders and separate threads.
+    RenderEnginePtr renderEngine;
+
+    // The group containing this node
+    mutable QMutex groupMutex;
     NodeCollectionWPtr group;
-    PrecompNodeWPtr precomp;
-    AppInstanceWPtr app; // pointer to the app: needed to access the application's default-project's format
-    bool isPartOfProject;
-    bool knobsInitialized;
-    bool inputsInitialized;
+
+    // pointer to the app: needed to access project stuff
+    AppInstanceWPtr app;
+
+    // If true, the node is serialized
+    bool isPersistent;
+
+    // Protects outputs
     mutable QMutex outputsMutex;
-    NodesWList outputs, guiOutputs;
-    mutable QMutex inputsMutex; //< protects guiInputs so the serialization thread can access them
 
-    ///The  inputs are the ones used while rendering and guiInputs the ones used by the gui whenever
-    ///the node is currently rendering. Once the render is finished, inputs are refreshed automatically to the value of
-    ///guiInputs
-    InputsV inputs, guiInputs;
+    // Map of weak references to the output nodes (and the list of input numbers of the output node connected to this node)
+    InternalOutputNodesMap outputs;
 
-    //to the inputs in a thread-safe manner.
-    EffectInstancePtr effect;  //< the effect hosted by this node
 
-    ///The accepted components in input and in output of the plug-in
-    ///These two are also protected by inputsMutex
-    std::vector<std::list<ImagePlaneDesc> > inputsComponents;
-    std::list<ImagePlaneDesc> outputComponents;
+    // Protects inputs
+    mutable QMutex inputsMutex; //< protects inputs so the serialization thread can access them
+
+    // vector of weak references to input nodes
+    InputsV inputs;
+
+    // Data for each input, initialized from the plug-in descriptor. It may be modified afterwards hence
+    // this is a copy from the plug-in
+    std::vector<InputDescriptionPtr> inputDescriptions;
+
+    // Pointer to the effect hosted by this node.
+    // This is the main effect and cannot be used to render, instead
+    // small lightweights render clones are created to render.
+    EffectInstancePtr effect;
+
+    // true when we're running inside an interact action
+    // Only valid on the main-thread
+    bool duringInteractAction;
+
+    // Protects scriptName and label
     mutable QMutex nameMutex;
-    mutable QMutex inputsLabelsMutex;
-    std::vector<std::string> inputLabels; // inputs name, protected by inputsLabelsMutex
-    std::vector<std::string> inputHints; // protected by inputsLabelsMutex
-    std::vector<bool> inputsVisibility; // protected by inputsMutex
-    std::string scriptName; //node name internally and as visible to python
-    std::string label; // node label as visible in the GUI
 
-    ///The cacheID is the first script name that was given to a node
-    ///it is then used in the cache to identify images that belong to this node
-    ///In order for the cache to be persistent, the cacheID is serialized with the node
-    ///and 2 nodes cannot have the same cacheID.
-    std::string cacheID;
-    DeactivatedState deactivatedState;
-    mutable QMutex activatedMutex;
-    bool activated;
-    Plugin* plugin; //< the plugin which stores the function to instantiate the effect
-    mutable QMutex pyPluginInfoMutex;
-    PyPlugInfo pyPlugInfo;
+    // Node name internally and as visible to python.
+    // May only be set to a Python compliant variable name (no strange characters)
+    std::string scriptName;
+
+    // Node label as visible in the GUI. Can be set to any-thing.
+    std::string label;
+
+    // The plugin which stores the function to instantiate the effect
+    PluginWPtr plugin;
+
+    // If this node was created from a PyPlug this is a pointer to the PyPlug plug-in handle.
+    PluginWPtr pyPlugHandle;
+
+    // True if this node is a PyPlug
+    bool isPyPlug;
+
+    // True while computing a preview.
     bool computingPreview;
+
+    // True when the preview thread has quit
     bool previewThreadQuit;
+
+    // Protects computingPreview and previewThreadQuit
     mutable QMutex computingPreviewMutex;
-    size_t pluginInstanceMemoryUsed; //< global count on all EffectInstance's of the memory they use.
-    QMutex memoryUsedMutex; //< protects _pluginInstanceMemoryUsed
+
+    // Not 0 when we should abort the preview
     int mustQuitPreview;
+
+    // Protects mustQuitPreview
     QMutex mustQuitPreviewMutex;
+
+    // Protected by mustQuitPreviewMutex. The thread aborting the preview rendering
+    // waits in this condition until the preview is aborted
     QWaitCondition mustQuitPreviewCond;
-    QMutex renderInstancesSharedMutex; //< see eRenderSafetyInstanceSafe in EffectInstance::renderRoI
-    //only 1 clone can render at any time
-    U64 knobsAge; //< the age of the knobs in this effect. It gets incremented every times the effect has its evaluate() function called.
-    mutable QReadWriteLock knobsAgeMutex; //< protects knobsAge and hash
-    Hash64 hash; //< recomputed everytime knobsAge is changed.
-    mutable QMutex masterNodeMutex; //< protects masterNode and nodeLinks
-    NodeWPtr masterNode; //< this points to the master when the node is a clone
-    KnobLinkList nodeLinks; //< these point to the parents of the params links
 
-#ifdef NATRON_ENABLE_IO_META_NODES
-    //When creating a Reader or Writer node, this is a pointer to the "bundle" node that the user actually see.
+    // When creating a Reader or Writer node, this is a pointer to the meta node that the user actually sees.
     NodeWPtr ioContainer;
-#endif
 
-    KnobIntWPtr frameIncrKnob;
-    KnobPageWPtr nodeSettingsPage;
-    KnobStringWPtr nodeLabelKnob;
-    KnobBoolWPtr previewEnabledKnob;
-    KnobBoolWPtr disableNodeKnob;
-    KnobChoiceWPtr openglRenderingEnabledKnob;
-    KnobIntWPtr lifeTimeKnob;
-    KnobBoolWPtr enableLifeTimeKnob;
-    KnobStringWPtr knobChangedCallback;
-    KnobStringWPtr inputChangedCallback;
-    KnobStringWPtr nodeCreatedCallback;
-    KnobStringWPtr nodeRemovalCallback;
-    KnobPageWPtr infoPage;
-    KnobStringWPtr nodeInfos;
-    KnobButtonWPtr refreshInfoButton;
-    KnobBoolWPtr useFullScaleImagesWhenRenderScaleUnsupported;
-    KnobBoolWPtr forceCaching;
-    KnobBoolWPtr hideInputs;
-    KnobStringWPtr beforeFrameRender;
-    KnobStringWPtr beforeRender;
-    KnobStringWPtr afterFrameRender;
-    KnobStringWPtr afterRender;
-    KnobBoolWPtr enabledChan[4];
-    KnobStringWPtr premultWarning;
-    KnobDoubleWPtr mixWithSource;
-    KnobButtonWPtr renderButton; //< render button for writers
-    FormatKnob pluginFormatKnobs;
-    KnobBoolWPtr processAllLayersKnob;
-    std::map<int, ChannelSelector> channelsSelectors;
-    std::map<int, MaskSelector> maskSelectors;
-    RotoContextPtr rotoContext; //< valid when the node has a rotoscoping context (i.e: paint context)
-    TrackerContextPtr trackContext;
-    mutable QMutex imagesBeingRenderedMutex;
-    QWaitCondition imagesBeingRenderedCond;
-    std::list<ImagePtr> imagesBeingRendered; ///< a list of all the images being rendered simultaneously
-    std::list<ImageBitDepthEnum> supportedDepths;
 
-    ///True when several effect instances are represented under the same node.
-    bool isMultiInstance;
-    NodeWPtr multiInstanceParent;
-    mutable QMutex childrenMutex;
-    NodesWList children;
+    // Protects lastRenderStartedSlotCallTime & lastInputNRenderStartedSlotCallTime
+    QMutex lastRenderStartedMutex;
 
-    ///the name of the parent at the time this node was created
-    std::string multiInstanceParentName;
-    bool keyframesDisplayedOnTimeline;
-
-    ///This is to avoid the slots connected to the main-thread to be called too much
-    QMutex lastRenderStartedMutex; //< protects lastRenderStartedSlotCallTime & lastInputNRenderStartedSlotCallTime
+    // This is to avoid the slots connected to the main-thread to be called too much
     timeval lastRenderStartedSlotCallTime;
     int renderStartedCounter;
     std::vector<int> inputIsRenderingCounter;
     timeval lastInputNRenderStartedSlotCallTime;
 
-    ///True when the node is dequeuing the connectionQueue and no render should be started 'til it is empty
-    bool nodeIsDequeuing;
-    QMutex nodeIsDequeuingMutex;
-    QWaitCondition nodeIsDequeuingCond;
+    // The last persistent message posted by the plug-in
+    PersistentMessageMap persistentMessages;
 
-    ///Counter counting how many parallel renders are active on the node
-    int nodeIsRendering;
-    mutable QMutex nodeIsRenderingMutex;
-    QString persistentMessage;
-    int persistentMessageType;
+    // Protects persistentMessage & persistentMessageType
     mutable QMutex persistentMessageMutex;
-    NodeGuiIWPtr guiPointer;
-    std::list<HostOverlayKnobsPtr> nativeOverlays;
+
+    // Pointer to the node gui if any
+    boost::weak_ptr<NodeGuiI> guiPointer;
+
+    // True when the node has its load() function complete
     bool nodeCreated;
+
+    // True if the node was created with the kCreateNodeArgsPropSilent flag
     bool wasCreatedSilently;
-    mutable QMutex createdComponentsMutex;
-    std::list<ImagePlaneDesc> createdComponents; // comps created by the user
-    RotoDrawableItemWPtr paintStroke;
 
-    // These are dynamic props
-    mutable QMutex pluginsPropMutex;
-    RenderSafetyEnum pluginSafety, currentThreadSafety;
-    bool currentSupportTiles;
-    PluginOpenGLRenderSupport currentSupportOpenGLRender;
-    SequentialPreferenceEnum currentSupportSequentialRender;
-    bool currentCanTransform;
-    bool draftModeUsed, mustComputeInputRelatedData;
-    bool duringPaintStrokeCreation; // protected by lastStrokeMovementMutex
-    mutable QMutex lastStrokeMovementMutex;
-    bool strokeBitmapCleared;
-
-
-    //This flag is used for the Roto plug-in and for the Merge inside the rotopaint tree
-    //so that if the input of the roto node is RGB, it gets converted with alpha = 0, otherwise the user
-    //won't be able to paint the alpha channel
-    bool useAlpha0ToConvertFromRGBToRGBA;
+    // Protects isBeingDestroyed
     mutable QMutex isBeingDestroyedMutex;
+
+    // true when the node is in the destroyNode function
     bool isBeingDestroyed;
-    NodeRenderWatcherPtr renderWatcher;
-    /*
-       Used to block render emitions while modifying nodes links
-       MT-safe: only accessed/used on main thread
-     */
+
+    // Used to bracket calls to onInputChanged to ensure stuff that needs to be recomputed
+    // when inputs are changed is computed once.
     int inputModifiedRecursion;
+
+    // Used to bracket inputs description modification and emit inputsDescriptionChanged only once
+    int hasModifiedInputsDescription;
+
+    // Input indices that changed whilst in the beginInput/endInputChanged bracket
     std::set<int> inputsModified;
 
-    //For readers, this is the name of the views in the file
+    // For readers, this is the name of the views in the file.
+    // This is read from the kReadOIIOAvailableViewsKnobName knob
     std::vector<std::string> createdViews;
 
-    //To concatenate calls to refreshIdentityState, accessed only on main-thread
+    // To concatenate calls to refreshIdentityState, accessed only on main-thread
+    mutable QMutex refreshIdentityStateRequestsCountMutex;
     int refreshIdentityStateRequestsCount;
-    int isRefreshingInputRelatedData; // only used by the main thread
+
+    // Map of warnings that should be displayed on the NodeGui indicating issues in the stream
     std::map<Node::StreamWarningEnum, QString> streamWarnings;
 
     // Some plug-ins (mainly Hitfilm Ignite detected for now) use their own OpenGL context that is sharing resources with our OpenGL contexT.
     // as a result if we don't call glFinish() before calling the render action, the plug-in context might use textures that were not finished yet.
     bool requiresGLFinishBeforeRender;
 
-    bool hostChannelSelectorEnabled;
+    // Used in the implementation of EffectInstance::onMetadataChanged_recursive so we know if the metadata changed or not.
+    U64 lastTimeInvariantMetadataHashRefreshed;
+
+    // UI
+    mutable QMutex nodeUIDataMutex;
+    double nodePositionCoords[2]; // x,y  X=Y=INT_MIN if there is no position info
+    double nodeSize[2]; // width, height, W=H=-1 if there is no size info
+    double nodeColor[3]; // node color (RGB), between 0. and 1. If R=G=B=-1 then no color
+    double overlayColor[3]; // overlay color (RGB), between 0. and 1. If R=G=B=-1 then no color
+    bool overlayActionsDraftEnabled;// If true, modyfing a parameter during an overlay action will issue a draft render
+    bool nodeIsSelected; // is this node selected by the user ?
+
+    // The name of the preset with which this node was created
+    mutable QMutex nodePresetMutex;
+    std::string initialNodePreset;
+
+    // This is a list of KnobPage script-names defining the ordering of the pages in the settings panel.
+    // This is used to determine if the ordering has changed or not for serialization purpose
+    std::list<std::string> defaultPagesOrder;
+
+    // This is a list of Knob script-names which are by default in the viewer interface.
+    // This is used to determine if the ordering has changed or not for serialization purpose
+    std::list<std::string> defaultViewerKnobsOrder;
+
+    // True when restoreNodeToDefault is called
+    bool restoringDefaults;
+
 };
+
+
+
+class ComputingPreviewSetter_RAII
+{
+    NodePrivate* _imp;
+
+public:
+    ComputingPreviewSetter_RAII(NodePrivate* imp)
+    : _imp(imp)
+    {
+        _imp->setComputingPreview(true);
+    }
+
+    ~ComputingPreviewSetter_RAII()
+    {
+        _imp->setComputingPreview(false);
+
+        bool mustQuitPreview = _imp->checkForExitPreview();
+        Q_UNUSED(mustQuitPreview);
+    }
+};
+
+
 
 
 NATRON_NAMESPACE_EXIT

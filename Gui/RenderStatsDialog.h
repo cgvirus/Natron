@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -61,13 +62,12 @@ public:
 
     virtual ~RenderStatsDialog();
 
-    void addStats(int time, ViewIdx view, double wallTime, const std::map<NodePtr, NodeRenderStats >& stats);
+    void addStats(int time, double wallTime, const std::map<NodePtr, NodeRenderStats >& stats);
 
 public Q_SLOTS:
 
     void resetStats();
-    void refreshAdvancedColsVisibility();
-    void onSelectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
+    void onKnobsTreeSelectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
 
     void updateVisibleRows();
     void onNameLineEditChanged(const QString& filter);

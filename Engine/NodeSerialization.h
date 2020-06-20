@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -398,7 +399,7 @@ private:
             int userPagesCount;
             ar & ::boost::serialization::make_nvp("UserPagesCount", userPagesCount);
             for (int i = 0; i < userPagesCount; ++i) {
-                GroupKnobSerializationPtr s = boost::make_shared<GroupKnobSerialization>();
+                boost::shared_ptr<GroupKnobSerialization> s( new GroupKnobSerialization() );
                 ar & ::boost::serialization::make_nvp("item", *s);
                 _userPages.push_back(s);
             }

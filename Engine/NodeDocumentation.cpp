@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,11 +25,9 @@
 
 #include "NodePrivate.h"
 
-#include <QtCore/QTextStream>
-#include <QtCore/QFile>
+#include <QTextStream>
+#include <QFile>
 
-#include "Engine/EffectInstance.h"
-#include "Engine/KnobTypes.h"
 #include "Engine/Utils.h"
 
 NATRON_NAMESPACE_ENTER
@@ -70,35 +69,28 @@ Node::makeDocumentation(bool genHTML) const
     QString pluginID, pluginLabel, pluginDescription, pluginIcon;
     int majorVersion = getMajorVersion();
     int minorVersion = getMinorVersion();
-    QStringList pluginGroup;
+    std::vector<std::string> pluginGroup;
     bool pluginDescriptionIsMarkdown = false;
     QVector<QStringList> inputs;
     QVector<QStringList> items;
 
     {
-        QMutexLocker k(&_imp->pyPluginInfoMutex);
-        if (_imp->pyPlugInfo.isPyPlug) {
-            pluginID = QString::fromUtf8( _imp->pyPlugInfo.pyPlugID.c_str() );
-            pluginLabel =  QString::fromUtf8( _imp->pyPlugInfo.pyPlugLabel.c_str() );
-            pluginDescription = QString::fromUtf8( _imp->pyPlugInfo.pyPlugDesc.c_str() );
-            pluginIcon = QString::fromUtf8( _imp->pyPlugInfo.pyPlugIconFilePath.c_str() );
-            for (std::list<std::string>::const_iterator it = _imp->pyPlugInfo.pyPlugGrouping.begin() ; it != _imp->pyPlugInfo.pyPlugGrouping.end(); ++it) {
-                pluginGroup.push_back(QString::fromUtf8(it->c_str()));
-            }
-        } else {
-            pluginID = _imp->plugin->getPluginID();
-            pluginLabel =  Plugin::makeLabelWithoutSuffix( _imp->plugin->getPluginLabel() );
-            pluginDescription =  QString::fromUtf8( _imp->effect->getPluginDescription().c_str() );
-            pluginIcon = _imp->plugin->getIconFilePath();
-            pluginGroup = _imp->plugin->getGrouping();
-            pluginDescriptionIsMarkdown = _imp->effect->isPluginDescriptionInMarkdown();
-        }
+        PluginPtr plugin = getPlugin();
+        assert(plugin);
+
+        pluginID = QString::fromUtf8(plugin->getPluginID().c_str());
+        pluginLabel =  QString::fromUtf8( Plugin::makeLabelWithoutSuffix( plugin->getPluginLabel() ).c_str());
+        pluginDescription =  QString::fromUtf8( plugin->getPropertyUnsafe<std::string>(kNatronPluginPropDescription).c_str() );
+        pluginIcon = QString::fromUtf8(plugin->getPropertyUnsafe<std::string>(kNatronPluginPropIconFilePath).c_str());
+        pluginGroup = plugin->getPropertyNUnsafe<std::string>(kNatronPluginPropGrouping);
+        pluginDescriptionIsMarkdown = plugin->getPropertyUnsafe<bool>(kNatronPluginPropDescriptionIsMarkdown);
+
 
         for (int i = 0; i < _imp->effect->getNInputs(); ++i) {
             QStringList input;
-            input << convertFromPlainTextToMarkdown( QString::fromStdString( _imp->effect->getInputLabel(i) ), genHTML, true );
-            input << convertFromPlainTextToMarkdown( QString::fromStdString( _imp->effect->getInputHint(i) ), genHTML, true );
-            input << ( _imp->effect->isInputOptional(i) ? tr("Yes") : tr("No") );
+            input << convertFromPlainTextToMarkdown( QString::fromStdString( getInputLabel(i) ), genHTML, true );
+            input << convertFromPlainTextToMarkdown( QString::fromStdString( getInputHint(i) ), genHTML, true );
+            input << ( isInputOptional(i) ? tr("Yes") : tr("No") );
             inputs.push_back(input);
 
             // Don't show more than doc for 4 inputs otherwise it will just clutter the page
@@ -140,11 +132,13 @@ Node::makeDocumentation(bool genHTML) const
     KnobsVec knobs = getEffectInstance()->getKnobs_mt_safe();
     for (KnobsVec::const_iterator it = knobs.begin(); it != knobs.end(); ++it) {
 
-        if ( (*it)->getDefaultIsSecret() ) {
+#pragma message WARN("TODO: restore getDefaultIsSecret from RB-2.2")
+        //if ( (*it)->getDefaultIsSecret() ) {
+        if ( (*it)->getIsSecret() ) {
             continue;
         }
 
-        if ( !(*it)->isDeclaredByPlugin() && !( isPyPlug() && (*it)->isUserKnob() ) ) {
+        if ((*it)->getKnobDeclarationType() != KnobI::eKnobDeclarationTypePlugin) {
             continue;
         }
 
@@ -166,24 +160,24 @@ Node::makeDocumentation(bool genHTML) const
              //  ( knobScriptName == QString::fromUtf8(kOCIOCDLTransformParamCCCID) ) ) ||
              ( ( pluginID == QString::fromUtf8(kOCIOFileTransformPluginIdentifier) ) &&
                ( knobScriptName == QString::fromUtf8(kOCIOFileTransformParamCCCID) ) ) ||
-             false ) {
+             false) {
             continue;
         }
 
         QString defValuesStr, knobType;
         std::vector<std::pair<QString, QString> > dimsDefaultValueStr;
-        KnobInt* isInt = dynamic_cast<KnobInt*>( it->get() );
-        KnobChoice* isChoice = dynamic_cast<KnobChoice*>( it->get() );
-        KnobBool* isBool = dynamic_cast<KnobBool*>( it->get() );
-        KnobDouble* isDbl = dynamic_cast<KnobDouble*>( it->get() );
-        KnobString* isString = dynamic_cast<KnobString*>( it->get() );
+        KnobIntPtr isInt = toKnobInt(*it);
+        KnobChoicePtr isChoice = toKnobChoice(*it);
+        KnobBoolPtr isBool = toKnobBool(*it);
+        KnobDoublePtr isDbl = toKnobDouble(*it);
+        KnobStringPtr isString = toKnobString(*it);
         bool isLabel = isString && isString->isLabel();
-        KnobSeparator* isSep = dynamic_cast<KnobSeparator*>( it->get() );
-        KnobButton* isBtn = dynamic_cast<KnobButton*>( it->get() );
-        KnobParametric* isParametric = dynamic_cast<KnobParametric*>( it->get() );
-        KnobGroup* isGroup = dynamic_cast<KnobGroup*>( it->get() );
-        KnobPage* isPage = dynamic_cast<KnobPage*>( it->get() );
-        KnobColor* isColor = dynamic_cast<KnobColor*>( it->get() );
+        KnobSeparatorPtr isSep = toKnobSeparator(*it);
+        KnobButtonPtr isBtn = toKnobButton(*it);
+        KnobParametricPtr isParametric = toKnobParametric(*it);
+        KnobGroupPtr isGroup = toKnobGroup(*it);
+        KnobPagePtr isPage = toKnobPage(*it);
+        KnobColorPtr isColor = toKnobColor(*it);
 
         if (isInt) {
             knobType = tr("Integer");
@@ -216,12 +210,12 @@ Node::makeDocumentation(bool genHTML) const
         }
 
         if (!isGroup && !isPage) {
-            for (int i = 0; i < (*it)->getDimension(); ++i) {
+            for (int i = 0; i < (*it)->getNDimensions(); ++i) {
                 QString valueStr;
 
                 if (!isBtn && !isSep && !isParametric) {
                     // If this is a ChoiceParam and we are not generating live HTML doc,
-                    // only add the list of entries and their halp if this node should not be
+                    // only add the list of entries and their help if this node should not be
                     // ignored (eg. OCIO colorspace knobs).
                     if ( isChoice &&
                          (genHTML || !( knobScriptName == QString::fromUtf8(kOCIOParamInputSpaceChoice) ||
@@ -243,10 +237,10 @@ Node::makeDocumentation(bool genHTML) const
                                         ( ( pluginID == QString::fromUtf8(PLUGINID_NATRON_ONEVIEW) ) &&
                                           ( knobScriptName == QString::fromUtf8("view") ) ) ) ) ) {
                         // see also KnobChoice::getHintToolTipFull()
-                        int index = isChoice->getDefaultValue(i);
-                        std::vector<ChoiceOption> entries = isChoice->getEntries_mt_safe();
+                        int index = isChoice->getDefaultValue(DimIdx(i));
+                        std::vector<ChoiceOption> entries = isChoice->getEntries();
                         if ( (index >= 0) && ( index < (int)entries.size() ) ) {
-                            valueStr = QString::fromUtf8( entries[index].label.c_str() );
+                            valueStr = QString::fromUtf8( entries[index].id.c_str() );
                         }
                         bool first = true;
                         for (size_t i = 0; i < entries.size(); i++) {
@@ -264,8 +258,7 @@ Node::makeDocumentation(bool genHTML) const
                                         if ( !knobHint.isEmpty() ) {
                                             knobHint.append( QString::fromUtf8("<br />") );
                                         }
-                                        // "Possible values:" clutters the documentation.
-                                        //knobHint.append( tr("Possible values:") + QString::fromUtf8("<br />") );
+                                        knobHint.append( tr("Possible values:") + QString::fromUtf8("<br />") );
                                     } else {
                                         // we do a hack for multiline elements, because the markdown->rst conversion by pandoc doesn't use the line block syntax.
                                         // what we do here is put a supplementary dot at the beginning of each line, which is then converted to a pipe '|' in the
@@ -276,8 +269,7 @@ Node::makeDocumentation(bool genHTML) const
                                             }
                                             knobHint.append( QString::fromUtf8("\\\n") );
                                         }
-                                        // "Possible values:" clutters the documentation.
-                                        //knobHint.append( QString::fromUtf8(". ") + tr("Possible values:") +  QString::fromUtf8("\\\n") );
+                                        knobHint.append( QString::fromUtf8(". ") + tr("Possible values:") +  QString::fromUtf8("\\\n") );
                                     }
                                     first = false;
                                 }
@@ -297,21 +289,20 @@ Node::makeDocumentation(bool genHTML) const
                                 }
                             }
                         }
-
                     } else if (isInt) {
-                        valueStr = QString::number( isInt->getDefaultValue(i) );
+                        valueStr = QString::number( isInt->getDefaultValue( DimIdx(i) ) );
                     } else if (isDbl) {
-                        valueStr = QString::number( isDbl->getDefaultValue(i) );
+                        valueStr = QString::number( isDbl->getDefaultValue( DimIdx(i) ) );
                     } else if (isBool) {
-                        valueStr = isBool->getDefaultValue(i) ? tr("On") : tr("Off");
+                        valueStr = isBool->getDefaultValue( DimIdx(i) ) ? tr("On") : tr("Off");
                     } else if (isString) {
-                        valueStr = QString::fromUtf8( isString->getDefaultValue(i).c_str() );
+                        valueStr = QString::fromUtf8( isString->getDefaultValue( DimIdx(i) ).c_str() );
                     } else if (isColor) {
-                        valueStr = QString::number( isColor->getDefaultValue(i) );
+                        valueStr = QString::number( isColor->getDefaultValue( DimIdx(i) ) );
                     }
                 }
 
-                dimsDefaultValueStr.push_back( std::make_pair(convertFromPlainTextToMarkdown( QString::fromUtf8( (*it)->getDimensionName(i).c_str() ), genHTML, true ),
+                dimsDefaultValueStr.push_back( std::make_pair(convertFromPlainTextToMarkdown( QString::fromUtf8( (*it)->getDimensionName( DimIdx(i) ).c_str() ), genHTML, true ),
                                                               convertFromPlainTextToMarkdown(valueStr, genHTML, true)) );
             }
 
@@ -340,8 +331,11 @@ Node::makeDocumentation(bool genHTML) const
     } // for (KnobsVec::const_iterator it = knobs.begin(); it!=knobs.end(); ++it) {
 
 
-    // generate plugin info
+    // Generate plugin info
+    // section header must be first, or cross-refs will not work:
+    // Documentation/source/plugins/net.sf.openfx.MergeMatte.rst:10: WARNING: undefined label: net.sf.openfx.mergeplugin (if the link has no caption the label must precede a section header)
     ms << tr("%1 node").arg(pluginLabel) << "\n==========\n\n";
+    ms << ( QString::fromUtf8("<!-- ") + tr("Do not edit this file! It is generated automatically by %1 itself.").arg ( QString::fromUtf8( NATRON_APPLICATION_NAME) ) + QString::fromUtf8(" -->\n\n") );
 
     // a hack to avoid repeating the documentation for the various merge plugins
     if ( pluginID.startsWith( QString::fromUtf8("net.sf.openfx.Merge") ) ) {
@@ -396,7 +390,7 @@ Node::makeDocumentation(bool genHTML) const
         }
         ms << "&nbsp;\n\n"; // &nbsp; required so that there is no legend when converted to rst by pandoc
     }
-    ms << tr("*This documentation is for version %2.%3 of %1.*").arg(pluginLabel).arg(majorVersion).arg(minorVersion) << "\n\n";
+    ms << tr("*This documentation is for version %1.%2 of %3 (%4).*").arg(majorVersion).arg(minorVersion).arg(pluginLabel).arg(pluginID) << "\n\n";
 
     ms << "\n" << tr("Description") << "\n--------------------------------------------------------------------------------\n\n";
 
@@ -413,6 +407,12 @@ Node::makeDocumentation(bool genHTML) const
     }
 
     ms << pluginDescription << "\n";
+
+    // add extra markdown if available
+    if ( !extraMarkdown.isEmpty() ) {
+        ms << "\n\n";
+        ms << extraMarkdown;
+    }
 
     // create markdown table
     ms << "\n" << tr("Inputs") << "\n--------------------------------------------------------------------------------\n\n";
@@ -446,75 +446,138 @@ Node::makeDocumentation(bool genHTML) const
         }
     }
 
-    // add extra markdown if available
-    if ( !extraMarkdown.isEmpty() ) {
-        ms << "\n\n";
-        ms << extraMarkdown;
-    }
-
 OUTPUT:
     // output
     if (genHTML) {
         // use hoedown to convert to HTML
+        // See Documentation/templates for how to grab header/footer from the latest Sphinx version
 
-        ts << ("<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\n"
-               "  \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n"
-               "\n"
-               "\n"
-               "<html xmlns=\"http://www.w3.org/1999/xhtml\">\n"
-               "  <head>\n"
-               "    <meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />\n"
-               "    \n"
-               "    <title>") << tr("%1 node").arg(pluginLabel) << " &#8212; NATRON_DOCUMENTATION</title>\n";
-        ts << ("    \n"
-               "    <link rel=\"stylesheet\" href=\"_static/markdown.css\" type=\"text/css\" />\n"
-               "    \n"
-               "    <script type=\"text/javascript\" src=\"_static/jquery.js\"></script>\n"
-               "    <script type=\"text/javascript\" src=\"_static/dropdown.js\"></script>\n"
-               "    <link rel=\"index\" title=\"Index\" href=\"genindex.html\" />\n"
-               "    <link rel=\"search\" title=\"Search\" href=\"search.html\" />\n"
-               "  </head>\n"
-               "  <body role=\"document\">\n"
-               "    <div class=\"related\" role=\"navigation\" aria-label=\"related navigation\">\n"
-               "      <h3>") << tr("Navigation") << "</h3>\n";
-        ts << ("      <ul>\n"
-               "        <li class=\"right\" style=\"margin-right: 10px\">\n"
-               "          <a href=\"genindex.html\" title=\"General Index\"\n"
-               "             accesskey=\"I\">") << tr("index") << "</a></li>\n";
-        ts << ("        <li class=\"right\" >\n"
-               "          <a href=\"py-modindex.html\" title=\"Python Module Index\"\n"
-               "             >") << tr("modules") << "</a> |</li>\n";
-        ts << ("        <li class=\"nav-item nav-item-0\"><a href=\"index.html\">NATRON_DOCUMENTATION</a> &#187;</li>\n"
-               "          <li class=\"nav-item nav-item-1\"><a href=\"_group.html\" >") << tr("Reference Guide") << "</a> &#187;</li>\n";
-        if ( !pluginGroup.isEmpty() ) {
-            QString group = pluginGroup.at(0);
+        QString groupString; // %2 in plugin_head
+        if ( !pluginGroup.empty() ) {
+            QString group = QString::fromStdString(pluginGroup.at(0));
             if (!group.isEmpty()) {
-                ts << "          <li class=\"nav-item nav-item-2\"><a href=\"_group.html?id=" << group << "\">" << group << " nodes</a> &#187;</li>";
+                groupString = QString::fromUtf8("<li><a href=\"../_group.html?id=%1\">%1 nodes</a> &raquo;</li>").arg(group);
             }
         }
-        ts << ("      </ul>\n"
-               "    </div>  \n"
-               "\n"
-               "    <div class=\"document\">\n"
-               "      <div class=\"documentwrapper\">\n"
-               "          <div class=\"body\" role=\"main\">\n"
-               "            \n"
-               "  <div class=\"section\">\n");
+
+        QString plugin_head =
+        QString::fromUtf8(
+        "<!DOCTYPE html>\n"
+        "<!--[if IE 8]><html class=\"no-js lt-ie9\" lang=\"en\" > <![endif]-->\n"
+        "<!--[if gt IE 8]><!--> <html class=\"no-js\" lang=\"en\" > <!--<![endif]-->\n"
+        "<head>\n"
+        "<meta charset=\"utf-8\">\n"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n"
+        "<title>%1 node &mdash; NATRON_DOCUMENTATION</title>\n"
+        "<script type=\"text/javascript\" src=\"../_static/js/modernizr.min.js\"></script>\n"
+        "<script type=\"text/javascript\" id=\"documentation_options\" data-url_root=\"../\" src=\"../_static/documentation_options.js\"></script>\n"
+        "<script src=\"../_static/jquery.js\"></script>\n"
+        "<script src=\"../_static/underscore.js\"></script>\n"
+        "<script src=\"../_static/doctools.js\"></script>\n"
+        "<script src=\"../_static/language_data.js\"></script>\n"
+        "<script async=\"async\" src=\"https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML\"></script>\n"
+        "<script type=\"text/javascript\" src=\"../_static/js/theme.js\"></script>\n"
+        "<link rel=\"stylesheet\" href=\"../_static/css/theme.css\" type=\"text/css\" />\n"
+        "<link rel=\"stylesheet\" href=\"../_static/pygments.css\" type=\"text/css\" />\n"
+        "<link rel=\"stylesheet\" href=\"../_static/theme_overrides.css\" type=\"text/css\" />\n"
+        "<link rel=\"index\" title=\"Index\" href=\"../genindex.html\" />\n"
+        "<link rel=\"search\" title=\"Search\" href=\"../search.html\" />\n"
+        "</head>\n"
+        "<body class=\"wy-body-for-nav\">\n"
+        "<div class=\"wy-grid-for-nav\">\n"
+        "<nav data-toggle=\"wy-nav-shift\" class=\"wy-nav-side\">\n"
+        "<div class=\"wy-side-scroll\">\n"
+        "<div class=\"wy-side-nav-search\" >\n"
+        "<a href=\"../index.html\" class=\"icon icon-home\"> Natron\n"
+        "<img src=\"../_static/logo.png\" class=\"logo\" alt=\"Logo\"/>\n"
+        "</a>\n"
+        "<div class=\"version\">\n"
+        "2.3\n"
+        "</div>\n"
+        "<div role=\"search\">\n"
+        "<form id=\"rtd-search-form\" class=\"wy-form\" action=\"../search.html\" method=\"get\">\n"
+        "<input type=\"text\" name=\"q\" placeholder=\"Search docs\" />\n"
+        "<input type=\"hidden\" name=\"check_keywords\" value=\"yes\" />\n"
+        "<input type=\"hidden\" name=\"area\" value=\"default\" />\n"
+        "</form>\n"
+        "</div>\n"
+        "</div>\n"
+        "<div class=\"wy-menu wy-menu-vertical\" data-spy=\"affix\" role=\"navigation\" aria-label=\"main navigation\">\n"
+        "<ul class=\"current\">\n"
+        "<li class=\"toctree-l1\"><a class=\"reference internal\" href=\"../guide/index.html\">User Guide</a></li>\n"
+        "<li class=\"toctree-l1 current\"><a class=\"reference internal\" href=\"../_group.html\">Reference Guide</a><ul class=\"current\">\n"
+        "<li class=\"toctree-l2\"><a class=\"reference internal\" href=\"../_prefs.html\">Preferences</a></li>\n"
+        "<li class=\"toctree-l2\"><a class=\"reference internal\" href=\"../_environment.html\">Environment Variables</a></li>\n"
+        "<li class=\"toctree-l2\"><a class=\"reference internal\" href=\"../_groupImage.html\">Image nodes</a></li>\n"
+        "<li class=\"toctree-l2\"><a class=\"reference internal\" href=\"../_groupDraw.html\">Draw nodes</a></li>\n"
+        "<li class=\"toctree-l2\"><a class=\"reference internal\" href=\"../_groupTime.html\">Time nodes</a></li>\n"
+        "<li class=\"toctree-l2\"><a class=\"reference internal\" href=\"../_groupChannel.html\">Channel nodes</a></li>\n"
+        "<li class=\"toctree-l2\"><a class=\"reference internal\" href=\"../_groupColor.html\">Color nodes</a></li>\n"
+        "<li class=\"toctree-l2\"><a class=\"reference internal\" href=\"../_groupFilter.html\">Filter nodes</a></li>\n"
+        "<li class=\"toctree-l2\"><a class=\"reference internal\" href=\"../_groupKeyer.html\">Keyer nodes</a></li>\n"
+        "<li class=\"toctree-l2\"><a class=\"reference internal\" href=\"../_groupMerge.html\">Merge nodes</a></li>\n"
+        "<li class=\"toctree-l2\"><a class=\"reference internal\" href=\"../_groupTransform.html\">Transform nodes</a></li>\n"
+        "<li class=\"toctree-l2\"><a class=\"reference internal\" href=\"../_groupViews.html\">Views nodes</a></li>\n"
+        "<li class=\"toctree-l2\"><a class=\"reference internal\" href=\"../_groupOther.html\">Other nodes</a></li>\n"
+        "<li class=\"toctree-l2\"><a class=\"reference internal\" href=\"../_groupGMIC.html\">GMIC nodes</a></li>\n"
+        "<li class=\"toctree-l2\"><a class=\"reference internal\" href=\"../_groupExtra.html\">Extra nodes</a></li>\n"
+        "</ul>\n"
+        "</li>\n"
+        "<li class=\"toctree-l1\"><a class=\"reference internal\" href=\"../devel/index.html\">Developers Guide</a></li>\n"
+        "</ul>\n"
+        "</div>\n"
+        "</div>\n"
+        "</nav>\n"
+        "<section data-toggle=\"wy-nav-shift\" class=\"wy-nav-content-wrap\">\n"
+        "<nav class=\"wy-nav-top\" aria-label=\"top navigation\">\n"
+        "<i data-toggle=\"wy-nav-top\" class=\"fa fa-bars\"></i>\n"
+        "<a href=\"../index.html\">Natron</a>\n"
+        "</nav>\n"
+        "<div class=\"wy-nav-content\">\n"
+        "<div class=\"rst-content\">\n"
+        "<div role=\"navigation\" aria-label=\"breadcrumbs navigation\">\n"
+        "<ul class=\"wy-breadcrumbs\">\n"
+        "<li><a href=\"../index.html\">Docs</a> &raquo;</li>\n"
+        "<li><a href=\"../_group.html\">Reference Guide</a> &raquo;</li>\n"
+        "%2\n"
+        "<li>%1 node</li>\n"
+        "</ul>\n"
+        "<hr/>\n"
+        "</div>\n"
+        "<div role=\"main\" class=\"document\" itemscope=\"itemscope\" itemtype=\"http://schema.org/Article\">\n"
+        "<div itemprop=\"articleBody\">\n"
+        "<div class=\"section\">\n");
+
+        QString plugin_foot =
+        QString::fromUtf8(
+        "</div>\n"
+        "</div>\n"
+        "</div>\n"
+        "<footer>\n"
+        "<hr/>\n"
+        "<div role=\"contentinfo\">\n"
+        "<p>\n"
+        "&copy; Copyright 2013-2020 The Natron documentation authors, licensed under CC BY-SA 4.0\n"
+        "</p>\n"
+        "</div>\n"
+        "Built with <a href=\"http://sphinx-doc.org/\">Sphinx</a> using a <a href=\"https://github.com/rtfd/sphinx_rtd_theme\">theme</a> provided by <a href=\"https://readthedocs.org\">Read the Docs</a>.\n"
+        "</footer>\n"
+        "</div>\n"
+        "</div>\n"
+        "</section>\n"
+        "</div>\n"
+        "<script type=\"text/javascript\">\n"
+        "jQuery(function () {\n"
+        "SphinxRtdTheme.Navigation.enable(true);\n"
+        "});\n"
+        "</script>\n"
+        "</body>\n"
+        "</html>\n");
+
+        ts << plugin_head.arg(pluginLabel, groupString);
         QString html = Markdown::convert2html(markdown);
         ts << Markdown::fixNodeHTML(html);
-        ts << ("</div>\n"
-               "\n"
-               "\n"
-               "          </div>\n"
-               "      </div>\n"
-               "      <div class=\"clearer\"></div>\n"
-               "    </div>\n"
-               "\n"
-               "    <div class=\"footer\" role=\"contentinfo\">\n"
-               "        &#169; Copyright 2013-2018 The Natron documentation authors, licensed under CC BY-SA 4.0.\n"
-               "    </div>\n"
-               "  </body>\n"
-               "</html>");
+        ts << plugin_foot;
     } else {
         // this markdown will be processed externally by pandoc
 

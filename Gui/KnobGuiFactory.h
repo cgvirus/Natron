@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,7 +40,7 @@
 NATRON_NAMESPACE_ENTER
 
 /******************************KNOB_FACTORY**************************************/
-//Maybe the factory should move to a separate file since it is used to create KnobGui aswell
+//Maybe the factory should move to a separate file since it is used to create KnobGui as well
 class KnobGui;
 class KnobHolder;
 
@@ -53,7 +54,7 @@ public:
     ~KnobGuiFactory();
 
 
-    KnobGui * createGuiForKnob(KnobIPtr knob, KnobGuiContainerI *container) const;
+    KnobGuiWidgets * createGuiForKnob(const KnobGuiPtr& knob, ViewIdx view) const;
 
 private:
     const std::map<std::string, LibraryBinary *> &getLoadedKnobs() const

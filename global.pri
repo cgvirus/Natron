@@ -1,6 +1,7 @@
 # ***** BEGIN LICENSE BLOCK *****
 # This file is part of Natron <https://natrongithub.github.io/>,
-# Copyright (C) 2013-2018 INRIA and Alexandre Gauthier
+# (C) 2018-2020 The Natron developers
+# (C) 2013-2018 INRIA and Alexandre Gauthier
 #
 # Natron is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -51,6 +52,14 @@ run-without-python {
 
     QMAKE_CFLAGS_WARN_ON += -Wall -Wextra -Wmissing-prototypes -Wmissing-declarations -Wno-multichar -Winit-self -Wno-long-long
     QMAKE_CXXFLAGS_WARN_ON += -Wall -Wextra -Wno-multichar -Winit-self -Wno-long-long
+    *clang* | *xcode* {
+    	# In file included from <built-in>:1:
+    	# In file included from /usr/local/Cellar/python@2/2.7.16/Frameworks/Python.framework/Versions/2.7/include/python2.7/Python.h:88:
+    	# /usr/local/Cellar/python@2/2.7.16/Frameworks/Python.framework/Versions/2.7/include/python2.7/unicodeobject.h:534:5: warning: 'register' storage class specifier is deprecated and incompatible with C++17 [-Wdeprecated-register]
+    	#     register PyObject *obj,     /* Object */
+    	#     ^~~~~~~~~
+        QMAKE_CXXFLAGS += -Wno-deprecated-register
+    }
     #QMAKE_CFLAGS_WARN_ON += -pedantic
     #QMAKE_CXXFLAGS_WARN_ON += -pedantic
     #QMAKE_CXXFLAGS_WARN_ON += -Weffc++
@@ -78,6 +87,14 @@ run-without-python {
 }
 
 win32-g++ {
+
+    # KnobExpression.cpp includes exprtk and the assembler fails with the following:
+    # as.exe: release/KnobExpression.o: too many sections (68807)
+    # {standard input}: Assembler messages:
+    # {standard input}: Fatal error: can't write release/KnobExpression.o: File too big
+    # Commented out: If defined, ld on mingw never returns.
+    #QMAKE_CXXFLAGS += -Wa,-mbig-obj
+
     # on Mingw LD is extremely slow in  debug mode and can take hours. Optimizing the build seems to make it faster
     CONFIG(debug, debug|release){
         QMAKE_CXXFLAGS += -O -g
@@ -101,6 +118,15 @@ CONFIG(debug, debug|release){
 
 CONFIG(enable-breakpad) {
     include(breakpadclient.pri)
+}
+
+
+enable-cairo {
+    # In Natron 2.2 onwards, roto render code has moved to an OpenGL based implementation and does not require cairo anymore. The cairo-based implementation is still maintained and works.
+    # If disable-cairo is specified, the CPU render code-path will use OSMesa to do the roto render using the OpenGL implementation.
+    # If not specified, the CPU reder code-path will use the cairo-based implementation.
+    # Note that we should avoid mixing the cairo based version and the OpenGL version as the rendering results may slightly differ.
+    DEFINES += ROTO_SHAPE_RENDER_ENABLE_CAIRO
 }
 
 CONFIG(noassertions) {
@@ -144,6 +170,26 @@ isEmpty(BUILD_NUMBER) {
 	DEFINES += NATRON_BUILD_NUMBER=0
 } else {
 	DEFINES += NATRON_BUILD_NUMBER=$$BUILD_NUMBER
+}
+
+CONFIG(enable-osmesa) {
+    # The following variables must be defined: LLVM_PATH and OSMESA_PATH
+    isEmpty(LLVM_PATH) {
+        LLVM_PATH="/opt/llvm"
+    }
+    isEmpty(OSMESA_PATH) {
+        OSMESA_PATH="/opt/osmesa"
+    }
+    OSMESA_PKG_CONFIG_PATH=$$OSMESA_PATH/lib/pkgconfig:$$(PKG_CONFIG_PATH)
+    # When using static Mesa libraries, the LLVM libs (necessary for llvmpipe) are not included
+    OSMESA_LIBS=$$system(env PKG_CONFIG_PATH=$$OSMESA_PKG_CONFIG_PATH pkg-config --libs --static osmesa) $$system($$LLVM_PATH/bin/llvm-config --ldflags --system-libs --libs engine mcjit mcdisassembler 2>/dev/null || $$LLVM_PATH/bin/llvm-config --ldflags --libs engine mcjit mcdisassembler)
+    OSMESA_INCLUDES=$$system(env PKG_CONFIG_PATH=$$OSMESA_PKG_CONFIG_PATH pkg-config --variable=includedir osmesa)
+
+    osmesa {
+        DEFINES += HAVE_OSMESA
+        INCLUDEPATH += $$OSMESA_INCLUDES
+        LIBS += $$OSMESA_LIBS
+    }
 }
 
 # https://qt.gitorious.org/qt-creator/qt-creator/commit/b48ba2c25da4d785160df4fd0d69420b99b85152
@@ -199,6 +245,24 @@ unix:LIBS += $$QMAKE_LIBS_DYNLOAD
   }
 }
 
+# from https://github.com/qt/qtbase/blob/dev/mkspecs/features/qt_common.prf
+# and https://patchwork.ozlabs.org/patch/1009009/#2048261
+gcc:!intel_icc {
+    QMAKE_CXXFLAGS_WARN_ON += -Wvla
+    # GCC 5 fixed -Wmissing-field-initializers for when there are no initializers
+    lessThan(QT_GCC_MAJOR_VERSION, 5): QMAKE_CXXFLAGS_WARN_ON += -Wno-missing-field-initializers
+    # GCC 5 introduced -Wdate-time
+    greaterThan(QT_GCC_MAJOR_VERSION, 4): QMAKE_CXXFLAGS_WARN_ON += -Wdate-time
+    # GCC 6 introduced these
+    greaterThan(QT_GCC_MAJOR_VERSION, 5): QMAKE_CXXFLAGS_WARN_ON += -Wshift-overflow=2 -Wduplicated-cond
+    # GCC 7 has a lot of false positives relating to this, so disable completely
+    greaterThan(QT_GCC_MAJOR_VERSION, 6): QMAKE_CXXFLAGS_WARN_ON += -Wno-stringop-overflow
+    # GCC 9 introduced -Wformat-overflow in -Wall, but it is buggy:
+    greaterThan(QT_GCC_MAJOR_VERSION, 8): QMAKE_CXXFLAGS_WARN_ON += -Wno-format-overflow
+    # GCC 9 has a lot of false positives relating to this, so disable completely
+    greaterThan(QT_GCC_MAJOR_VERSION, 8): QMAKE_CXXFLAGS_WARN_ON += -Wno-deprecated-copy
+}
+
 openmp {
   QMAKE_CXXFLAGS += -fopenmp
   QMAKE_CFLAGS += -fopenmp
@@ -229,11 +293,11 @@ macx {
       # later OSX instances only run on x86_64, universal builds are useless
       # (unless a later OSX supports ARM)
     }
-  } 
+  }
 
   #link against the CoreFoundation framework for the StandardPaths functionnality
   LIBS += -framework CoreServices
-    
+
   #// Disable availability macros on macOS
   #// because we may be using libc++ on an older macOS,
   #// so that std::locale::numeric may be available
@@ -242,6 +306,11 @@ macx {
   #// in /opt/local/libexec/llvm-5.0/include/c++/v1/__config
   #// and /opt/local/libexec/llvm-5.0/include/c++/v1/__locale
   DEFINES += _LIBCPP_DISABLE_AVAILABILITY
+
+  # The ObjC API changed with Catalina, use the old one for now
+  # (there is code to use the new API, but it is untested,
+  # search for OBJC_OLD_DISPATCH_PROTOTYPES in the sources).
+  DEFINES += "OBJC_OLD_DISPATCH_PROTOTYPES=1"
 }
 
 macx-clang-libc++ {
@@ -277,8 +346,8 @@ win32 {
   #DEFINES += _MBCS
   DEFINES += WINDOWS COMPILED_FROM_DSP XML_STATIC  NOMINMAX
   DEFINES += _UNICODE UNICODE
- 
-  DEFINES += QHTTP_SERVER_STATIC 
+
+  DEFINES += QHTTP_SERVER_STATIC
 
   #System library is required on windows to map network share names from drive letters
   LIBS += -lmpr
@@ -286,7 +355,7 @@ win32 {
 
 
   # Natron requires a link to opengl32.dll and Gdi32 for offscreen rendering
-  LIBS += -lopengl32 -lGdi32
+  osmesa:   LIBS += -lopengl32 -lGdi32
 
 
 }
@@ -336,13 +405,14 @@ win32-g++ {
    # On MingW everything is defined with pkgconfig except boost
     QT_CONFIG -= no-pkg-config
     CONFIG += link_pkgconfig
+    PKGCONFIG += freetype2 fontconfig
 
     expat:     PKGCONFIG += expat
     cairo:     PKGCONFIG += cairo
     equals(QT_MAJOR_VERSION, 5) {
-        shiboken:  INCLUDEPATH += $$system(python2 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")/PySide2/include/shiboken
-    	pyside:    INCLUDEPATH += $$system(python2 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")/PySide2/include/PySide2
-   	pyside:    INCLUDEPATH += $$system(python2 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")/PySide2/include/PySide2/QtCore
+        shiboken:  INCLUDEPATH += $$system(python2 -c \"from distutils.sysconfig import get_python_lib; print(get_python_lib())\")/PySide2/include/shiboken
+    	pyside:    INCLUDEPATH += $$system(python2 -c \"from distutils.sysconfig import get_python_lib; print(get_python_lib())\")/PySide2/include/PySide2
+   	pyside:    INCLUDEPATH += $$system(python2 -c \"from distutils.sysconfig import get_python_lib; print(get_python_lib())\")/PySide2/include/PySide2/QtCore
     }
     equals(QT_MAJOR_VERSION, 4) {
         shiboken:  PKGCONFIG += shiboken-py2
@@ -351,9 +421,9 @@ win32-g++ {
         pyside:    INCLUDEPATH += $$system(pkg-config --variable=includedir pyside-py2)/QtGui
     }
     python:    PKGCONFIG += python-2.7
-    boost:     LIBS += -lboost_serialization-mt
-    boost:     LIBS += -lboost_serialization-mt
-	
+    boost-serialization-lib: LIBS += -lboost_serialization-mt
+    boost:     LIBS += -lboost_thread-mt -lboost_system-mt
+
     #See http://stackoverflow.com/questions/16596876/object-file-has-too-many-sections
     Debug:	QMAKE_CXXFLAGS += -Wa,-mbig-obj
 }
@@ -362,19 +432,23 @@ unix {
      #  on Unix systems, only the "boost" option needs to be defined in config.pri
      QT_CONFIG -= no-pkg-config
      CONFIG += link_pkgconfig
-     expat:     PKGCONFIG += expat
+     expat:      PKGCONFIG += expat
 
-     # GLFW will require a link to X11 on linux and OpenGL framework on OS X
-     linux-*|freebsd-* {
-          LIBS += -lGL -lX11
+
+     fontconfig: PKGCONFIG += freetype2 fontconfig
+
+     linux-* |freebsd-*{
+         osmesa:    LIBS += -lGL -lX11
          # link with static cairo on linux, to avoid linking to X11 libraries in NatronRenderer
          cairo {
-             PKGCONFIG += pixman-1 freetype2 fontconfig
+             PKGCONFIG += pixman-1
              LIBS +=  $$system(pkg-config --variable=libdir cairo)/libcairo.a
          }
+         LIBS += -lrt
          QMAKE_LFLAGS += '-Wl,-rpath,\'\$$ORIGIN/../lib\',-z,origin'
      } else {
-         LIBS += -framework OpenGL
+
+         osmesa:    LIBS += -framework OpenGL
          cairo:     PKGCONFIG += cairo
      }
      linux-* {
@@ -396,9 +470,9 @@ unix {
      }
 
      equals(QT_MAJOR_VERSION, 5) {
-         shiboken:  INCLUDEPATH += $$system(python2 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")/PySide2/include/shiboken
-    	 pyside:    INCLUDEPATH += $$system(python2 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")/PySide2/include/PySide2
-   	 pyside:    INCLUDEPATH += $$system(python2 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")/PySide2/include/PySide2/QtCore
+         shiboken:  INCLUDEPATH += $$system(python2 -c \"from distutils.sysconfig import get_python_lib; print(get_python_lib())\")/PySide2/include/shiboken
+    	 pyside:    INCLUDEPATH += $$system(python2 -c \"from distutils.sysconfig import get_python_lib; print(get_python_lib())\")/PySide2/include/PySide2
+   	 pyside:    INCLUDEPATH += $$system(python2 -c \"from distutils.sysconfig import get_python_lib; print(get_python_lib())\")/PySide2/include/PySide2/QtCore
      }
 
      equals(QT_MAJOR_VERSION, 4) {
@@ -463,7 +537,7 @@ addresssanitizer {
   *xcode* {
     enable_cxx_container_overflow_check.name = CLANG_ADDRESS_SANITIZER_CONTAINER_OVERFLOW
     enable_cxx_container_overflow_check.value = YES
-    QMAKE_MAC_XCODE_SETTINGS += enable_cxx_container_overflow_check  
+    QMAKE_MAC_XCODE_SETTINGS += enable_cxx_container_overflow_check
   }
   *g++* | *clang* {
     CONFIG += debug
@@ -510,12 +584,55 @@ unix:!macx {
     INSTALLS += target_icons target_mime target_desktop target_appdata
 }
 
-# GCC 8.1 gives a strange bug in the release builds, see https://github.com/NatronGitHub/Natron/issues/279
-# prevent building with GCC 8, unless configure with CONFIG+=enforce-gcc8
+# GCC 8.1 (and maybe 8.2) gives a strange bug in the release builds, see https://github.com/NatronGitHub/Natron/issues/279
+# configure with CONFIG+=enforce-gcc8 to enforce building even if GCC 8.1 or 8.2 is detected
 
 enforce-gcc8 {
   DEFINES += ENFORCE_GCC8
 }
+
+############################################
+## fontconfig directories
+## see https://github.com/NatronGitHub/Natron/blob/201c9b560d50c33f5761ba16b4a60455f909c455/Gui/Resources/etc/fonts/fonts.conf
+
+FC_DEFAULT_FONTS =
+FC_CACHEDIR =
+
+# Linux & friends
+unix:!macx {
+FC_DEFAULT_FONTS += "<dir>/usr/share/fonts</dir>"
+FC_DEFAULT_FONTS += "<dir>/usr/X11/lib/X11/fonts</dir>"
+FC_DEFAULT_FONTS += "<dir>/usr/X11R6/lib/X11/fonts</dir>"
+FC_DEFAULT_FONTS += "<dir>/usr/share/X11/fonts</dir>"
+FC_DEFAULT_FONTS += "<dir>/usr/local/share/fonts</dir>"
+FC_CACHEDIR += "<dir>/var/cache/fontconfig</dir>"
+}
+
+# macOS
+macx {
+# Homebrew
+FC_DEFAULT_FONTS += "<dir>/usr/local/share/fonts</dir>"
+# XQuartz
+FC_DEFAULT_FONTS += "<dir>/opt/X11/share/fonts</dir>"
+# MacPorts
+FC_DEFAULT_FONTS += "<dir>/opt/local/share/fonts</dir>"
+FC_DEFAULT_FONTS += "<dir>/System/Library/Fonts</dir>"
+FC_DEFAULT_FONTS += "<dir>/Network/Library/Fonts</dir>"
+FC_DEFAULT_FONTS += "<dir>/Library/Fonts</dir>"
+FC_DEFAULT_FONTS += "<dir>~/Library/Fonts</dir>"
+FC_DEFAULT_FONTS += "<dir>/System/Library/Assets/com_apple_MobileAsset_Font3</dir>"
+FC_DEFAULT_FONTS += "<dir>/System/Library/Assets/com_apple_MobileAsset_Font4</dir>"
+FC_DEFAULT_FONTS += "<dir>/System/Library/Assets/com_apple_MobileAsset_Font5</dir>"
+# There's no system-default FC_CACHEDIR on macOS
+#FC_CACHEDIR += "<dir>/opt/X11/var/cache/fontconfig</dir> <!-- XQuartz -->"
+}
+
+# Windows
+win32 {
+FC_DEFAULT_FONTS += "<dir>WINDOWSFONTDIR</dir>"
+FC_CACHEDIR += "<cachedir>LOCAL_APPDATA_FONTCONFIG_CACHE</cachedir>"
+}
+
 
 # and finally...
 include(config.pri)

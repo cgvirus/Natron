@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -46,10 +47,10 @@ CLANG_DIAG_ON(uninitialized)
 #include "Engine/KnobFile.h"
 #include "Engine/KnobFactory.h"
 #include "Engine/TLSHolder.h"
-#include "Engine/EngineFwd.h"
 #include "Engine/Project.h"
 #include "Engine/GenericSchedulerThreadWatcher.h"
 
+#include "Engine/EngineFwd.h"
 
 NATRON_NAMESPACE_ENTER
 
@@ -58,13 +59,12 @@ struct ProjectPrivate
     Q_DECLARE_TR_FUNCTIONS(Project)
 
 public:
-    Project* _publicInterface;
+    Project* _publicInterface; // can not be a smart ptr
     mutable QMutex projectLock; //< protects the whole project
     QString lastAutoSaveFilePath; //< absolute file path of the last auto-save file
     bool hasProjectBeenSavedByUser; //< has this project ever been saved by the user?
     QDateTime ageSinceLastSave; //< the last time the user saved
     QDateTime lastAutoSave; //< the last time since autosave
-    QDateTime projectCreationTime; //< the project creation time
     std::list<Format> builtinFormats;
     std::list<Format> additionalFormats; //< added by the user
     mutable QMutex formatMutex; //< protects builtinFormats & additionalFormats
@@ -77,7 +77,7 @@ public:
     KnobChoicePtr formatKnob; //< built from builtinFormats & additionalFormats
     KnobButtonPtr addFormatKnob;
     KnobPathPtr viewsList;
-    KnobLayersPtr defaultLayersList;
+    boost::shared_ptr<KnobLayers> defaultLayersList;
     KnobButtonPtr setupForStereoButton;
     KnobBoolPtr previewMode; //< auto or manual
     KnobChoicePtr colorSpace8u;
@@ -99,6 +99,7 @@ public:
     TimeLinePtr timeline; // global timeline
     bool autoSetProjectFormat;
     mutable QMutex isLoadingProjectMutex;
+    SERIALIZATION_NAMESPACE::ProjectSerializationPtr lastProjectLoaded;
     bool isLoadingProject; //< true when the project is loading
     bool isLoadingProjectInternal; //< true when loading the internal project (not gui)
     mutable QMutex isSavingProjectMutex;
@@ -108,6 +109,7 @@ public:
     mutable QMutex projectClosingMutex;
     bool projectClosing;
     boost::shared_ptr<TLSHolder<Project::ProjectTLSData> > tlsData;
+
 
     // only used on the main-thread
     struct RenderWatcher
@@ -120,8 +122,7 @@ public:
 
     ProjectPrivate(Project* project);
 
-    bool restoreFromSerialization(const ProjectSerialization & obj, const QString& name, const QString& path, bool* mustSave);
-
+        
     bool findFormat(int index, Format* format) const;
     bool findFormat(const std::string& formatSpec, Format* format) const;
     /**

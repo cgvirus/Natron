@@ -1,5 +1,5 @@
---- src/corelib/concurrent/qthreadpool.cpp.orig	2015-05-07 16:14:48.000000000 +0200
-+++ src/corelib/concurrent/qthreadpool.cpp	2016-03-18 11:00:22.000000000 +0100
+--- src/corelib/concurrent/qthreadpool.cpp.orig
++++ src/corelib/concurrent/qthreadpool.cpp
 @@ -45,6 +45,8 @@
  
  #ifndef QT_NO_THREAD
@@ -82,8 +82,8 @@
  }
  
  /*!
---- src/corelib/concurrent/qthreadpool.h.orig	2015-05-07 16:14:48.000000000 +0200
-+++ src/corelib/concurrent/qthreadpool.h	2016-03-18 11:01:55.000000000 +0100
+--- src/corelib/concurrent/qthreadpool.h.orig
++++ src/corelib/concurrent/qthreadpool.h
 @@ -46,15 +46,43 @@
  
  #include <QtCore/qthread.h>

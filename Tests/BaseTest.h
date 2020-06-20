@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -70,13 +71,13 @@ protected:
     ///output to the node input. expectedReturnValue is expected to have the same value as the return
     ///value of the underlying connect call. That means that if expectedReturnValue is true, the
     ///connection is expected to succeed, and vice versa.
-    void connectNodes(NodePtr input, NodePtr output,
+    void connectNodes(const NodePtr& input, const NodePtr& output,
                       int inputNumber, bool expectedReturnValue);
 
     ///Useful function to disconnect 2 nodes together. expectedReturnValue is expected to have the same value as the return
     ///value of the underlying disconnect call. That means that if expectedReturnValue is true, the
     ///disconnection is expected to succeed, and vice versa.
-    void disconnectNodes(NodePtr input, NodePtr output, bool expectedReturnvalue);
+    void disconnectNodes(const NodePtr& input, const NodePtr& output, bool expectedReturnvalue);
 
     void registerTestPlugins();
 

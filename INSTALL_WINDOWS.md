@@ -7,7 +7,7 @@ Instructions for installing Natron from sources on Microsoft Windows
 toolchain that can be used to build Windows applications. It provides
 most dependencies required by Natron.
 
-Follow the [Windows Setup](tools/jenkins/README.md) instructions from the jenkins README to setup MSYS2 and install the required MSYS packages.
+Follow the [Windows SDK](tools/MINGW-packages/README.md) instructions to setup MSYS2 and install the required MSYS packages.
 
 ### OpenFX
 
@@ -44,14 +44,17 @@ INCLUDEPATH is the path to the include files
 
 LIBS is the path to the libs
 
-    ----- copy and paste the following in a terminal -----
-    cat > config.pri << EOF
-    boost: LIBS += -lboost_serialization
-    expat: LIBS += -lexpat
-    expat: PKGCONFIG -= expat
-    cairo: PKGCONFIG -= cairo
-    EOF
-    ----- end -----
+```
+----- copy and paste the following in a terminal -----
+cat > config.pri << EOF
+boost-serialization-lib: LIBS += -lboost_serialization
+boost: LIBS += -lboost_thread -lboost_system
+expat: LIBS += -lexpat
+expat: PKGCONFIG -= expat
+cairo: PKGCONFIG -= cairo
+EOF
+----- end -----
+```
 
 ***note:*** *the last line for cairo is only necessary if the package for cairo in your distribution
 is lower than version 1.12 (as it is on Ubuntu 12.04 LTS for example).*
@@ -132,7 +135,7 @@ the pre-compiled binaries we provide (see above).
 You can download boost from 
 (boost download)[http://www.boost.org/users/download/]
 For now only boost serialisation is required. Follow the build instructions to compile
-boost. You'll need to build a shared | multi-threaded version of the librairies.
+boost. You'll need to build a shared | multi-threaded version of the libraries.
 Pre-compiled binaries for boost are available here:
 http://boost.teeks99.com/
 
@@ -189,8 +192,8 @@ Here's an example of a config.pri file that supports both 32bit and 64bit builds
 
 boost {
         INCLUDEPATH +=  $$quote(C:\\boost)
-        CONFIG(release, debug|release): LIBS += -L$$quote(C:\\boost\\x64) -lboost_serialization-vc100-mt-1_57
-		CONFIG(debug, debug|release):  LIBS += -L$$quote(C:\\boost\\x64) -lboost_serialization-vc100-mt-gd-1_57
+        CONFIG(release, debug|release): LIBS += -L$$quote(C:\\boost\\x64) -lboost_serialization-vc100-mt-1_57 -lboost_thread-vc100-mt-1_57 -lboost_system-vc100-mt-1_57
+		CONFIG(debug, debug|release):  LIBS += -L$$quote(C:\\boost\\x64) -lboost_serialization-vc100-mt-gd-1_57 -lboost_thread-vc100-mt-gd-1_57 -lboost_system-vc100-mt-gd-1_57
 }
 
 expat{
@@ -229,8 +232,8 @@ shiboken {
 
 boost {
         INCLUDEPATH +=  $$quote(C:\\boost)
-        CONFIG(release, debug|release): LIBS += -L$$quote(C:\\boost\\win32) -lboost_serialization-vc100-mt-1_57
-		CONFIG(debug, debug|release): LIBS += -L$$quote(C:\\boost\\win32) -lboost_serialization-vc100-mt-gd-1_57
+        CONFIG(release, debug|release): LIBS += -L$$quote(C:\\boost\\win32) -lboost_serialization-vc100-mt-1_57 -lboost_thread-vc100-mt-1_57 -lboost_system-vc100-mt-1_57
+		CONFIG(debug, debug|release): LIBS += -L$$quote(C:\\boost\\win32) -lboost_serialization-vc100-mt-gd-1_57 -lboost_thread-vc100-mt-gd-1_57 -lboost_system-vc100-mt-gd-1_57
 }
 
 expat{

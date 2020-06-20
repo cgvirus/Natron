@@ -22,33 +22,23 @@ Functions
 Member functions description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-
 .. method:: NatronEngine.AppSettings.getParam(scriptName)
-
 
     :param scriptName: :class:`str<NatronEngine.std::string>`
     :rtype: :class:`Param<NatronEngine.Param>`
 
-Returns a :doc:`Param` by its *scriptName*. See :ref:`this<autoVar>` section for a detailed
-explanation of what is the *script-name*.
-
-
-
+   Returns a :doc:`Param` by its *scriptName*. See :ref:`this<autoVar>` section for a detailed
+   explanation of what is the *script-name*.
 
 .. method:: NatronEngine.AppSettings.getParams()
 
-
     :rtype: :class:`sequence`
 
-Returns a sequence with all :doc:`Param` composing the settings.
-
-
-
+   Returns a sequence with all :doc:`Param` composing the settings.
 
 .. method:: NatronEngine.AppSettings.restoreDefaultSettings()
 
-
-Restores all settings to their default value shipped with Natron.
+   Restores all settings to their default value shipped with Natron.
 
 
 

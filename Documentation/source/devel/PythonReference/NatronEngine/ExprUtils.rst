@@ -4,8 +4,6 @@
 ExprUtils
 *************
 
-**Inherits** :doc:`Double2DParam`
-
 Synopsis
 --------
 
@@ -47,6 +45,13 @@ Functions
 
 Member functions description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. method:: NatronEngine.Double3DParam.get()
+
+    :rtype: :class:`Double3DTuple`
+
+Returns a :doc:`Double3DTuple` with the [x,y,z] values for this parameter at the current
+timeline's time.
 
 .. method:: NatronEngine.ExprUtils.boxstep (x,a)
 

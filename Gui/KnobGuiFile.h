@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,14 +39,16 @@ CLANG_DIAG_ON(uninitialized)
 
 #include "Global/GlobalDefines.h"
 
+#include "Engine/TimeValue.h"
 #include "Gui/KnobGuiTable.h"
+#include "Gui/KnobGuiWidgets.h"
 #include "Gui/GuiFwd.h"
 
 NATRON_NAMESPACE_ENTER
 
 //================================
 class KnobGuiFile
-    : public KnobGui
+    : public QObject, public KnobGuiWidgets
 {
 GCC_DIAG_SUGGEST_OVERRIDE_OFF
     Q_OBJECT
@@ -53,22 +56,18 @@ GCC_DIAG_SUGGEST_OVERRIDE_ON
 
 public:
 
-    static KnobGui * BuildKnobGui(KnobIPtr knob,
-                                  KnobGuiContainerI *container)
+    static KnobGuiWidgets * BuildKnobGui(const KnobGuiPtr& knob, ViewIdx view)
     {
-        return new KnobGuiFile(knob, container);
+        return new KnobGuiFile(knob, view);
     }
 
-    KnobGuiFile(KnobIPtr knob,
-                KnobGuiContainerI *container);
+    KnobGuiFile(const KnobGuiPtr& knob, ViewIdx view);
 
     virtual ~KnobGuiFile() OVERRIDE;
 
-    virtual void removeSpecificGui() OVERRIDE FINAL;
-    virtual KnobIPtr getKnob() const OVERRIDE FINAL;
-
-
     bool checkFileModificationAndWarn(SequenceTime time, bool errorAndAbortRender);
+
+    virtual void reflectLinkedState(DimIdx dimension, bool linked) OVERRIDE;
 
 public Q_SLOTS:
 
@@ -91,21 +90,20 @@ public Q_SLOTS:
 
 private:
 
-    bool checkFileModificationAndWarnInternal(bool doCheck, SequenceTime time, bool errorAndAbortRender);
+    bool checkFileModificationAndWarnInternal(bool doCheck, TimeValue time, bool errorAndAbortRender);
 
 
     virtual void addRightClickMenuEntries(QMenu* menu) OVERRIDE FINAL;
     virtual bool shouldAddStretch() const OVERRIDE FINAL { return false; }
 
     virtual void createWidget(QHBoxLayout* layout) OVERRIDE FINAL;
-    virtual void _hide() OVERRIDE FINAL;
-    virtual void _show() OVERRIDE FINAL;
-    virtual void setEnabled() OVERRIDE FINAL;
-    virtual void setDirty(bool dirty) OVERRIDE FINAL;
-    virtual void setReadOnly(bool readOnly, int dimension) OVERRIDE FINAL;
-    virtual void updateGUI(int dimension) OVERRIDE FINAL;
-    virtual void reflectAnimationLevel(int dimension, AnimationLevelEnum level) OVERRIDE FINAL;
-    virtual void reflectExpressionState(int dimension, bool hasExpr) OVERRIDE FINAL;
+    virtual void setWidgetsVisible(bool visible) OVERRIDE FINAL;
+    virtual void setEnabled(const std::vector<bool>& perDimEnabled) OVERRIDE FINAL;
+    virtual void reflectMultipleSelection(bool dirty) OVERRIDE FINAL;
+    virtual void reflectSelectionState(bool selected) OVERRIDE ;
+    virtual void reflectModificationsState() OVERRIDE;
+    virtual void updateGUI() OVERRIDE FINAL;
+    virtual void reflectAnimationLevel(DimIdx dimension, AnimationLevelEnum level) OVERRIDE FINAL;
     virtual void updateToolTip() OVERRIDE FINAL;
 
 private:
@@ -124,71 +122,6 @@ private:
 };
 
 
-//================================
-class KnobGuiOutputFile
-    : public KnobGui
-{
-GCC_DIAG_SUGGEST_OVERRIDE_OFF
-    Q_OBJECT
-GCC_DIAG_SUGGEST_OVERRIDE_ON
-
-public:
-
-    static KnobGui * BuildKnobGui(KnobIPtr knob,
-                                  KnobGuiContainerI *container)
-    {
-        return new KnobGuiOutputFile(knob, container);
-    }
-
-    KnobGuiOutputFile(KnobIPtr knob,
-                      KnobGuiContainerI *container);
-
-    virtual ~KnobGuiOutputFile() OVERRIDE;
-
-    virtual void removeSpecificGui() OVERRIDE FINAL;
-    virtual KnobIPtr getKnob() const OVERRIDE FINAL;
-
-public Q_SLOTS:
-
-    void onTextEdited();
-
-    void onButtonClicked();
-
-    void onRewriteClicked();
-
-    void open_file(bool);
-
-    void onMakeAbsoluteTriggered();
-
-    void onMakeRelativeTriggered();
-
-    void onSimplifyTriggered();
-
-private:
-
-    virtual void addRightClickMenuEntries(QMenu* menu) OVERRIDE FINAL;
-    virtual bool shouldAddStretch() const OVERRIDE FINAL { return false; }
-
-    virtual void createWidget(QHBoxLayout* layout) OVERRIDE FINAL;
-    virtual void _hide() OVERRIDE FINAL;
-    virtual void _show() OVERRIDE FINAL;
-    virtual void setEnabled() OVERRIDE FINAL;
-    virtual void setDirty(bool dirty) OVERRIDE FINAL;
-    virtual void setReadOnly(bool readOnly, int dimension) OVERRIDE FINAL;
-    virtual void updateGUI(int dimension) OVERRIDE FINAL;
-    virtual void reflectAnimationLevel(int dimension, AnimationLevelEnum level) OVERRIDE FINAL;
-    virtual void reflectExpressionState(int dimension, bool hasExpr) OVERRIDE FINAL;
-    virtual void updateToolTip() OVERRIDE FINAL;
-    void updateLastOpened(const QString &str);
-
-private:
-    LineEdit *_lineEdit;
-    Button *_openFileButton;
-    Button *_rewriteButton;
-    QString _lastOpened;
-    KnobOutputFileWPtr _knob;
-};
-
 
 //================================
 
@@ -201,19 +134,16 @@ GCC_DIAG_SUGGEST_OVERRIDE_ON
 
 public:
 
-    static KnobGui * BuildKnobGui(KnobIPtr knob,
-                                  KnobGuiContainerI *container)
+    static KnobGuiWidgets * BuildKnobGui(const KnobGuiPtr& knob, ViewIdx view)
     {
-        return new KnobGuiPath(knob, container);
+        return new KnobGuiPath(knob, view);
     }
 
-    KnobGuiPath(KnobIPtr knob,
-                KnobGuiContainerI *container);
+    KnobGuiPath(const KnobGuiPtr& knob, ViewIdx view);
 
     virtual ~KnobGuiPath() OVERRIDE;
 
-    virtual void removeSpecificGui() OVERRIDE FINAL;
-    virtual KnobIPtr getKnob() const OVERRIDE FINAL;
+    virtual void reflectLinkedState(DimIdx dimension, bool linked) OVERRIDE;
 
 public Q_SLOTS:
 
@@ -230,14 +160,13 @@ public Q_SLOTS:
 private:
     virtual void addRightClickMenuEntries(QMenu* menu) OVERRIDE FINAL;
     virtual void createWidget(QHBoxLayout *layout) OVERRIDE FINAL;
-    virtual void _hide() OVERRIDE FINAL;
-    virtual void _show() OVERRIDE FINAL;
-    virtual void setEnabled() OVERRIDE FINAL;
-    virtual void setDirty(bool dirty) OVERRIDE FINAL;
-    virtual void setReadOnly(bool readOnly, int dimension) OVERRIDE FINAL;
-    virtual void updateGUI(int dimension) OVERRIDE FINAL;
-    virtual void reflectAnimationLevel(int dimension, AnimationLevelEnum level) OVERRIDE FINAL;
-    virtual void reflectExpressionState(int dimension, bool hasExpr) OVERRIDE FINAL;
+    virtual void setWidgetsVisible(bool visible) OVERRIDE FINAL;
+    virtual void setEnabled(const std::vector<bool>& perDimEnabled) OVERRIDE FINAL;
+    virtual void reflectMultipleSelection(bool dirty) OVERRIDE FINAL;
+    virtual void reflectSelectionState(bool selected) OVERRIDE ;
+    virtual void reflectModificationsState() OVERRIDE;
+    virtual void updateGUI() OVERRIDE FINAL;
+    virtual void reflectAnimationLevel(DimIdx dimension, AnimationLevelEnum level) OVERRIDE FINAL;
     virtual void updateToolTip() OVERRIDE FINAL;
     void updateLastOpened(const QString &str);
 

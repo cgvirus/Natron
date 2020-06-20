@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,29 +34,37 @@
 
 NATRON_NAMESPACE_ENTER
 
-class ViewSpec
+
+class ViewIdx;
+class ViewIdx;
+
+class ViewSetSpec
 {
     int i;
 
 public:
-    ViewSpec()
-        : i(0)
+    ViewSetSpec()
+    : i(0)
     {
     }
 
     // cast from int must be explicit
-    explicit ViewSpec(int index)
-        : i(index)
+    explicit ViewSetSpec(int index)
+    : i(index)
     {
         assert(index >= -2);
     }
 
+    ViewSetSpec(const ViewIdx& view_i);
+
     // cast to int is implicit
     operator int() const
     {
-        assert(i >= 0);
-
         return i;
+    }
+
+    bool operator<(const ViewSetSpec& b) const {
+        return i < b.i;
     }
 
     int value() const
@@ -65,26 +74,24 @@ public:
 
     bool isAll() const { return i == -1; }
 
-    bool isCurrent() const { return i == -2; }
-
     bool isViewIdx() const { return i >= 0; }
 
-    static ViewSpec all() { return ViewSpec(-1); };
-    static ViewSpec current() { return ViewSpec(-2); };
+    static ViewSetSpec all() { return ViewSetSpec(-1); };
 };
 
+
 class ViewIdx
-    : public ViewSpec
+    : public ViewSetSpec
 {
 public:
     ViewIdx()
-        : ViewSpec(0)
+        : ViewSetSpec(0)
     {
     }
 
     // cast from int must be explicit
     explicit ViewIdx(int index)
-        : ViewSpec(index)
+        : ViewSetSpec(index)
     {
         assert(index >= 0);
     }
@@ -99,12 +106,15 @@ public:
     }
 
 private:
+
     bool isAll() const { return false; }
 
-    bool isCurrent() const { return false; }
+    bool isViewIdx() const { return true; }
 
-    static ViewIdx all(); // overload with no implementation
-    static ViewIdx current(); // overload with no implementation
+    static ViewSetSpec all(); // overload with no implementation
+
+
+
 };
 
 NATRON_NAMESPACE_EXIT

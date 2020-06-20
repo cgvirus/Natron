@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -45,7 +46,7 @@ class ComputePreviewRequest
 {
 public:
 
-    double time;
+    TimeValue time;
     NodeGuiWPtr node;
 
     ComputePreviewRequest()
@@ -86,7 +87,7 @@ PreviewThread::~PreviewThread()
 
 void
 PreviewThread::appendToQueue(const NodeGuiPtr& node,
-                             double time)
+                             TimeValue time)
 {
     ComputePreviewRequestPtr r = boost::make_shared<ComputePreviewRequest>();
 
@@ -105,8 +106,6 @@ PreviewThread::threadLoopOnce(const GenericThreadStartArgsPtr& inArgs)
 
     NodeGuiPtr node = args->node.lock();
     if (node) {
-        ///Mark this thread as running
-        appPTR->fetchAndAddNRunningThreads(1);
 
         //process the request if valid
         int w = NATRON_PREVIEW_WIDTH;
@@ -122,13 +121,11 @@ PreviewThread::threadLoopOnce(const GenericThreadStartArgsPtr& inArgs)
 #endif
         NodePtr internalNode = node->getNode();
         if (internalNode) {
-            bool ok = internalNode->makePreviewImage( args->time, &w, &h, &_imp->data.front() );
+            bool ok = internalNode->makePreviewImage( args->time, w, h, &_imp->data.front() );
             Q_UNUSED(ok);
             node->copyPreviewImageBuffer(_imp->data, w, h);
         }
 
-        ///Unmark this thread as running
-        appPTR->fetchAndAddNRunningThreads(-1);
     }
 
     return eThreadStateActive;

@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,6 +31,16 @@
 
 #include <QtCore/QDebug>
 
+GCC_DIAG_UNUSED_LOCAL_TYPEDEFS_OFF
+CLANG_DIAG_OFF(mismatched-tags)
+GCC_DIAG_OFF(unused-parameter)
+#include "natronengine_python.h"
+#include <shiboken.h> // produces many warnings
+GCC_DIAG_UNUSED_LOCAL_TYPEDEFS_ON
+CLANG_DIAG_ON(mismatched-tags)
+GCC_DIAG_ON(unused-parameter)
+
+
 #include "Engine/AppInstance.h"
 #include "Engine/CreateNodeArgs.h"
 #include "Engine/Project.h"
@@ -37,7 +48,11 @@
 #include "Engine/NodeGroup.h"
 #include "Engine/EffectInstance.h"
 #include "Engine/Settings.h"
-
+#include "Engine/RenderQueue.h"
+#include "Engine/RenderEngine.h"
+#include "Engine/ViewerNode.h"
+#include "Engine/ViewerInstance.h"
+#include "Engine/OutputSchedulerThread.h"
 #include "Engine/EngineFwd.h"
 
 NATRON_NAMESPACE_ENTER
@@ -77,7 +92,7 @@ App::getCollectionFromGroup(Group* group) const
         } else if (isEffect) {
             NodePtr node = isEffect->getInternalNode();
             assert(node);
-            NodeGroupPtr isGrp = boost::dynamic_pointer_cast<NodeGroup>( node->getEffectInstance()->shared_from_this() );
+            NodeGroupPtr isGrp = toNodeGroup( node->getEffectInstance()->shared_from_this() );
             if (!isGrp) {
                 qDebug() << "The group passed to createNode() is not a group, defaulting to the project root.";
             } else {
@@ -108,6 +123,7 @@ static void makeCreateNodeArgs(const AppInstancePtr& app,
 
     args->setProperty<bool>(kCreateNodeArgsPropAddUndoRedoCommand, false);
     args->setProperty<bool>(kCreateNodeArgsPropSettingsOpened, false);
+    args->setProperty<bool>(kCreateNodeArgsPropSubGraphOpened, false);
     args->setProperty<bool>(kCreateNodeArgsPropAutoConnect, false);
     args->setProperty<bool>(kCreateNodeArgsPropSilent, true);
     args->setProperty<bool>(kCreateNodeArgsPropAllowNonUserCreatablePlugins, true); // also load deprecated plugins
@@ -128,7 +144,7 @@ static void makeCreateNodeArgs(const AppInstancePtr& app,
             if (isInt) {
                 args->setPropertyN<int>(prop, isInt->getValues(), fail);
             } else if (isBool) {
-                if (prop == kCreateNodeArgsPropOutOfProject) {
+                if (prop == kCreateNodeArgsPropVolatile) {
                     args->setProperty(kCreateNodeArgsPropNoNodeGUI, true);
                     skipNoNodeGuiProp = true;
                 } else if (skipNoNodeGuiProp && prop == kCreateNodeArgsPropNoNodeGUI) {
@@ -152,6 +168,83 @@ static void makeCreateNodeArgs(const AppInstancePtr& app,
 
 }
 
+Effect*
+App::createEffectFromNodeWrapper(const NodePtr& node)
+{
+    assert(node);
+
+    // First, try to re-use an existing Effect object that was created for this node.
+    // If not found, create one.
+    std::stringstream ss;
+    ss << kPythonTmpCheckerVariable << " = ";
+    ss << node->getApp()->getAppIDString() << "." << node->getFullyQualifiedName();
+    std::string script = ss.str();
+    bool ok = NATRON_PYTHON_NAMESPACE::interpretPythonScript(script, 0, 0);
+    // Clear errors if our call to interpretPythonScript failed, we don't want the
+    // calling function to fail aswell.
+    NATRON_PYTHON_NAMESPACE::clearPythonStdErr();
+    if (ok) {
+        PyObject* pyEffect = 0;
+        PyObject* mainModule = NATRON_PYTHON_NAMESPACE::getMainModule();
+        if ( PyObject_HasAttrString(mainModule, kPythonTmpCheckerVariable) ) {
+            pyEffect = PyObject_GetAttrString(mainModule, kPythonTmpCheckerVariable);
+            if (pyEffect == Py_None) {
+                pyEffect = 0;
+            }
+        }
+        Effect* cppEffect = 0;
+        if (pyEffect && Shiboken::Object::isValid(pyEffect)) {
+            cppEffect = (Effect*)Shiboken::Conversions::cppPointer(SbkNatronEngineTypes[SBK_EFFECT_IDX], (SbkObject*)pyEffect);
+        }
+
+        NATRON_PYTHON_NAMESPACE::interpretPythonScript("del " kPythonTmpCheckerVariable, 0, 0);
+        NATRON_PYTHON_NAMESPACE::clearPythonStdErr();
+        if (cppEffect) {
+            return cppEffect;
+        }
+    }
+
+    // Ok not found, create one
+    return new Effect(node);
+}
+
+App*
+App::createAppFromAppInstance(const AppInstancePtr& app)
+{
+    assert(app);
+
+    // First, try to re-use an existing Effect object that was created for this node.
+    // If not found, create one.
+    std::stringstream ss;
+    ss << kPythonTmpCheckerVariable << " = " << app->getAppIDString() ;
+    std::string script = ss.str();
+    bool ok = NATRON_PYTHON_NAMESPACE::interpretPythonScript(script, 0, 0);
+    // Clear errors if our call to interpretPythonScript failed, we don't want the
+    // calling function to fail aswell.
+    NATRON_PYTHON_NAMESPACE::clearPythonStdErr();
+    if (ok) {
+        PyObject* pyApp = 0;
+        PyObject* mainModule = NATRON_PYTHON_NAMESPACE::getMainModule();
+        if ( PyObject_HasAttrString(mainModule, kPythonTmpCheckerVariable )) {
+            pyApp = PyObject_GetAttrString(mainModule, kPythonTmpCheckerVariable);
+            if (pyApp == Py_None) {
+                pyApp = 0;
+            }
+        }
+        App* cppApp = 0;
+        if (pyApp && Shiboken::Object::isValid(pyApp)) {
+            cppApp = (App*)Shiboken::Conversions::cppPointer(SbkNatronEngineTypes[SBK_APP_IDX], (SbkObject*)pyApp);
+        }
+        NATRON_PYTHON_NAMESPACE::interpretPythonScript("del " kPythonTmpCheckerVariable, 0, 0);
+        NATRON_PYTHON_NAMESPACE::clearPythonStdErr();
+        if (cppApp) {
+            return cppApp;
+        }
+    }
+
+    // Ok not found, create one
+    return new App(app);
+}
 
 Effect*
 App::createNode(const QString& pluginID,
@@ -162,12 +255,12 @@ App::createNode(const QString& pluginID,
     NodeCollectionPtr collection = getCollectionFromGroup(group);
 
     assert(collection);
-    CreateNodeArgs args;
-    makeCreateNodeArgs(getInternalApp(), pluginID, majorVersion, collection, props, &args);
+    CreateNodeArgsPtr args(new CreateNodeArgs);
+    makeCreateNodeArgs(getInternalApp(), pluginID, majorVersion, collection, props, args.get());
 
     NodePtr node = getInternalApp()->createNode(args);
     if (node) {
-        return new Effect(node);
+        return App::createEffectFromNodeWrapper(node);
     } else {
         return NULL;
     }
@@ -182,12 +275,12 @@ App::createReader(const QString& filename,
 
     assert(collection);
 
-    CreateNodeArgs args;
-    makeCreateNodeArgs(getInternalApp(),  QString::fromUtf8(PLUGINID_NATRON_READ), -1, collection, props, &args);
+    CreateNodeArgsPtr args(new CreateNodeArgs);
+    makeCreateNodeArgs(getInternalApp(),  QString::fromUtf8(PLUGINID_NATRON_READ), -1, collection, props, args.get());
 
     NodePtr node = getInternalApp()->createReader(filename.toStdString(), args);
     if (node) {
-        return new Effect(node);
+        return App::createEffectFromNodeWrapper(node);
     } else {
         return NULL;
     }
@@ -201,11 +294,11 @@ App::createWriter(const QString& filename,
     NodeCollectionPtr collection = getCollectionFromGroup(group);
 
     assert(collection);
-    CreateNodeArgs args;
-    makeCreateNodeArgs(getInternalApp(), QString::fromUtf8(PLUGINID_NATRON_WRITE), -1, collection, props, &args);
+    CreateNodeArgsPtr args(new CreateNodeArgs);
+    makeCreateNodeArgs(getInternalApp(), QString::fromUtf8(PLUGINID_NATRON_WRITE), -1, collection, props, args.get());
     NodePtr node = getInternalApp()->createWriter(filename.toStdString(), args);
     if (node) {
-        return new Effect(node);
+        return App::createEffectFromNodeWrapper(node);
     } else {
         return NULL;
     }
@@ -220,9 +313,9 @@ App::timelineGetTime() const
 int
 App::timelineGetLeftBound() const
 {
-    double left, right;
+    TimeValue left, right;
 
-    getInternalApp()->getFrameRange(&left, &right);
+    getInternalApp()->getProject()->getFrameRange(&left, &right);
 
     return left;
 }
@@ -230,11 +323,17 @@ App::timelineGetLeftBound() const
 int
 App::timelineGetRightBound() const
 {
-    double left, right;
+    TimeValue left, right;
 
-    getInternalApp()->getFrameRange(&left, &right);
+    getInternalApp()->getProject()->getFrameRange(&left, &right);
 
     return right;
+}
+
+void
+App::timelineGoTo(int frame)
+{
+    getInternalApp()->getTimeLine()->seekFrame(frame, false, EffectInstancePtr(), eTimelineChangeReasonOtherSeek);
 }
 
 AppSettings::AppSettings(const SettingsPtr& settings)
@@ -273,13 +372,13 @@ AppSettings::getParams() const
 void
 AppSettings::saveSettings()
 {
-    _settings->saveAllSettings();
+    _settings->saveSettingsToFile();
 }
 
 void
 AppSettings::restoreDefaultSettings()
 {
-    _settings->restoreDefault();
+    _settings->restoreAllSettingsToDefaults();
 }
 
 void
@@ -312,28 +411,28 @@ App::renderInternal(bool forceBlocking,
 
         return;
     }
-    AppInstance::RenderWork w;
+    RenderQueue::RenderWork w;
     NodePtr node =  writeNode->getInternalNode();
     if (!node) {
         std::cerr << tr("Invalid write node").toStdString() << std::endl;
 
         return;
     }
-    w.writer = dynamic_cast<OutputEffectInstance*>( node->getEffectInstance().get() );
-    if (!w.writer) {
-        std::cerr << tr("Invalid write node").toStdString() << std::endl;
+    w.treeRoot = node;
 
-        return;
-    }
 
-    w.firstFrame = firstFrame;
-    w.lastFrame = lastFrame;
-    w.frameStep = frameStep;
+    w.firstFrame = TimeValue(firstFrame);
+    w.lastFrame = TimeValue(lastFrame);
+    w.frameStep = TimeValue(frameStep);
     w.useRenderStats = false;
 
-    std::list<AppInstance::RenderWork> l;
+    std::list<RenderQueue::RenderWork> l;
     l.push_back(w);
-    getInternalApp()->startWritersRendering(forceBlocking, l);
+    if (forceBlocking) {
+        getInternalApp()->getRenderQueue()->renderBlocking(l);
+    } else {
+        getInternalApp()->getRenderQueue()->renderNonBlocking(l);
+    }
 }
 
 void
@@ -343,7 +442,7 @@ App::renderInternal(bool forceBlocking,
                     const std::list<int>& lastFrames,
                     const std::list<int>& frameSteps)
 {
-    std::list<AppInstance::RenderWork> l;
+    std::list<RenderQueue::RenderWork> l;
 
     assert( effects.size() == firstFrames.size() && effects.size() == lastFrames.size() && frameSteps.size() == effects.size() );
     std::list<Effect*>::const_iterator itE = effects.begin();
@@ -356,28 +455,69 @@ App::renderInternal(bool forceBlocking,
 
             return;
         }
-        AppInstance::RenderWork w;
+        RenderQueue::RenderWork w;
         NodePtr node =  (*itE)->getInternalNode();
         if (!node) {
             std::cerr << tr("Invalid write node").toStdString() << std::endl;
 
             return;
         }
-        w.writer = dynamic_cast<OutputEffectInstance*>( node->getEffectInstance().get() );
-        if ( !w.writer || !w.writer->isOutput() ) {
+        w.treeRoot = node;
+        if ( !w.treeRoot || !w.treeRoot->getEffectInstance()->isOutput() ) {
             std::cerr << tr("Invalid write node").toStdString() << std::endl;
 
             return;
         }
 
-        w.firstFrame = (*itF);
-        w.lastFrame = (*itL);
-        w.frameStep = (*itS);
+        w.firstFrame = TimeValue(*itF);
+        w.lastFrame = TimeValue(*itL);
+        w.frameStep = TimeValue(*itS);
         w.useRenderStats = false;
 
         l.push_back(w);
     }
-    getInternalApp()->startWritersRendering(forceBlocking, l);
+    if (forceBlocking) {
+        getInternalApp()->getRenderQueue()->renderBlocking(l);
+    } else {
+        getInternalApp()->getRenderQueue()->renderNonBlocking(l);
+    }
+}
+
+void
+App::redrawViewer(Effect* viewerNode)
+{
+    if (!viewerNode) {
+        return;
+    }
+    NodePtr internalNode = viewerNode->getInternalNode();
+    if (!internalNode) {
+        return;
+    }
+    ViewerNodePtr viewer = internalNode->isEffectViewerNode();
+    if (!viewer) {
+        return;
+    }
+    viewer->redrawViewer();
+}
+
+void
+App::refreshViewer(Effect* viewerNode, bool useCache)
+{
+    if (!viewerNode) {
+        return;
+    }
+    NodePtr internalNode = viewerNode->getInternalNode();
+    if (!internalNode) {
+        return;
+    }
+    ViewerNodePtr viewer = internalNode->isEffectViewerNode();
+    if (!viewer) {
+        return;
+    }
+    if (!useCache) {
+        viewer->forceNextRenderWithoutCacheRead();
+    }
+    viewer->getNode()->getRenderEngine()->renderCurrentFrame();
 }
 
 Param*
@@ -401,7 +541,7 @@ App::writeToScriptEditor(const QString& message)
 void
 App::addFormat(const QString& formatSpec)
 {
-    if ( !getInternalApp()->getProject()->addFormat( formatSpec.toStdString() ) ) {
+    if ( !getInternalApp()->getProject()->addDefaultFormat( formatSpec.toStdString() ) ) {
         getInternalApp()->appendToScriptEditor( formatSpec.toStdString() );
     }
 }
@@ -433,7 +573,7 @@ App::loadProject(const QString& filename)
         return 0;
     }
 
-    return new App(app);
+    return App::createAppFromAppInstance(app);
 }
 
 ///Close the current project but keep the window
@@ -460,7 +600,7 @@ App::newProject()
         return 0;
     }
 
-    return new App(app);
+    return App::createAppFromAppInstance(app);
 }
 
 std::list<QString>
@@ -474,6 +614,25 @@ App::getViewNames() const
     }
 
     return ret;
+}
+
+int
+App::getViewIndex(const QString& viewName) const
+{
+    ViewIdx view_i;
+    if (!getInternalApp()->getProject()->getViewIndex(viewName.toStdString(), &view_i)) {
+        return false;
+    }
+    return view_i;
+}
+
+QString
+App::getViewName(int viewIndex) const
+{
+    if (viewIndex < 0) {
+        return QString();
+    }
+    return QString::fromUtf8(getInternalApp()->getProject()->getViewName(ViewIdx(viewIndex)).c_str());
 }
 
 void

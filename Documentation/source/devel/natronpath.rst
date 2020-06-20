@@ -15,11 +15,15 @@ the following search paths in order:
 
             On Windows that would be::
 
-                C:\Users\<username>\.Natron
+                C:\Documents and Settings\<username>\NatronUserData
 
             On OS X & Linux that would be::
 
-                ~/.Natron
+                /home/<username>/NatronUserData
+
+            .. warning::
+
+                Note that the old ~/.Natron directory is no longer looked up by Natron.
 
 - The standard system location for non OpenFX plug-ins (i.e. PyPlugs):
 
@@ -36,9 +40,18 @@ the following search paths in order:
                 /usr/share/Natron/Plugins
 
 - All the paths indicated by the **NATRON_PLUGIN_PATH** environment variable. This
-  environment variable should contain the separator *;* between each path, such as::
+  environment variable should contain a separator between each path.
+  On Windows the separator is the character *;*, on Linux/macOS the separator is the
+  character *:* , such as:
 
-        /home/<username>/NatronPluginsA;/home/<username>/NatronPluginsB
+        # Windows:
+        C:\MyData\NatronPlugins;C:\Users\<username>\Documents\NatronPlugins
+
+        # On Linux:
+        /home/<username>/NatronPluginsA:/home/<username>/NatronPluginsB
+
+        # On macOS:
+        /Users/<username>/NatronPluginsA:/Users/<username>/NatronPluginsB
 
 - The user extra search paths in the Plug-ins tab of the Preferences of Natron.
 

@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -56,7 +57,7 @@ NATRON_NAMESPACE_ENTER
 
 struct DockablePanelPrivate
 {
-    DockablePanel* _publicInterface;
+    DockablePanel* _publicInterface; // can not be a smart ptr
     Gui* _gui;
     QVBoxLayout* _container; /*!< ptr to the layout containing this DockablePanel*/
 
@@ -75,7 +76,10 @@ struct DockablePanelPrivate
     /*Tab related*/
     QWidget* _rightContainer;
     QVBoxLayout* _rightContainerLayout;
+
+    // Used when pages are enabled
     QTabWidget* _tabWidget;
+
     Button* _centerNodeButton;
     Button* _enterInGroupButton;
     Button* _helpButton;
@@ -83,9 +87,6 @@ struct DockablePanelPrivate
     Button* _hideUnmodifiedButton;
     Button* _floatButton;
     Button* _cross;
-    mutable QMutex _currentColorMutex;
-    QColor _overlayColor;
-    bool _hasOverlayColor;
     Button* _colorButton;
     Button* _overlayButton;
     Button* _undoButton;
@@ -98,7 +99,7 @@ struct DockablePanelPrivate
     ///THe visibility of the knobs before the hide/show unmodified button is clicked
     ///to show only the knobs that need to afterwards
     std::map<KnobGuiWPtr, bool> _knobsVisibilityBeforeHideModif;
-    KnobHolder* _holder;
+    KnobHolderWPtr _holder;
     bool _useScrollAreasForTabs;
     DockablePanel::HeaderModeEnum _mode;
     mutable QMutex _isClosedMutex;
@@ -107,13 +108,12 @@ struct DockablePanelPrivate
     QString _pluginID;
     QString _pluginLabel;
     unsigned _pluginVersionMajor, _pluginVersionMinor;
-    bool _pagesEnabled;
-    TrackerPanel* _trackerPanel;
     Label* _iconLabel;
+
 
     DockablePanelPrivate(DockablePanel* publicI,
                          Gui* gui,
-                         KnobHolder* holder,
+                         const KnobHolderPtr& holder,
                          QVBoxLayout* container,
                          DockablePanel::HeaderModeEnum headerMode,
                          bool useScrollAreasForTabs,

@@ -30,10 +30,8 @@ Functions
 
 .. _parametric.details:
 
-
 Detailed Description
 --------------------
-
 
 .. figure:: parametricParam.png
     :width: 500px
@@ -59,13 +57,13 @@ Member functions description
     :param dimension: :class:`int<PySide.QtCore.int>`
     :param key: :class:`float<PySide.QtCore.double>`
     :param value: :class:`float<PySide.QtCore.double>`
-    :param interpolation: :class:`KeyFrameTypeEnum<NatronEngine.Natron.KeyframeTypeEnum>`
-    :rtype: :attr:`StatusEnum<NatronEngine.Natron.StatusEnum>`
+    :param interpolation :class:`KeyFrameTypeEnum<NatronEngine.Natron.KeyframeTypeEnum>`
+    :rtype: :class:`bool<PySide.QtCore.bool>`
 
 Attempts to add a new control point to the curve at the given *dimension*.
 The new point will have the coordinate (key,value).
-This function returns a NatronEngine.Natron.StatusEnum.eStatusOK upon success, otherwise
-NatronEngine.Natron.StatusEnum.eStatusFailed is returned upon failure.
+This function returns True upon success, otherwise
+False is returned upon failure.
 
 
 .. method:: NatronEngine.ParametricParam.addControlPoint(dimension, key, value, leftDerivative, rightDerivative[,interpolation=NatronEngine.Natron.KeyframeTypeEnum.eKeyframeTypeSmooth])
@@ -76,13 +74,13 @@ NatronEngine.Natron.StatusEnum.eStatusFailed is returned upon failure.
     :param value: :class:`float<PySide.QtCore.double>`
     :param leftDerivative: :class:`float<PySide.QtCore.double>`
     :param rightDerivative: :class:`float<PySide.QtCore.double>`
-    :param interpolation: :class:`KeyFrameTypeEnum<NatronEngine.Natron.KeyframeTypeEnum>`
-    :rtype: :attr:`StatusEnum<NatronEngine.Natron.StatusEnum>`
+    :param interpolation :class:`KeyFrameTypeEnum<NatronEngine.Natron.KeyframeTypeEnum>`
+    :rtype: :class:`bool<PySide.QtCore.bool>`
 
 Attempts to add a new control point to the curve at the given *dimension*.
 The new point will have the coordinate (key,value) and the derivatives (leftDerivative, rightDerivative).
-This function returns a NatronEngine.Natron.StatusEnum.eStatusOK upon success, otherwise
-NatronEngine.Natron.StatusEnum.eStatusFailed is returned upon failure.
+This function returns a True upon success, otherwise
+False is returned upon failure.
 
 
 
@@ -91,11 +89,11 @@ NatronEngine.Natron.StatusEnum.eStatusFailed is returned upon failure.
 
 
     :param dimension: :class:`int<PySide.QtCore.int>`
-    :rtype: :attr:`StatusEnum<NatronEngine.Natron.StatusEnum>`
+    :rtype: :class:`bool<PySide.QtCore.bool>`
 
 Removes all control points of the curve at the given *dimension*.
-This function returns a NatronEngine.Natron.StatusEnum.eStatusOK upon success, otherwise
-NatronEngine.Natron.StatusEnum.eStatusFailed is returned upon failure.
+This function returns a True upon success, otherwise
+False is returned upon failure.
 
 
 
@@ -105,14 +103,13 @@ NatronEngine.Natron.StatusEnum.eStatusFailed is returned upon failure.
 
     :param dimension: :class:`int<PySide.QtCore.int>`
     :param nthCtl: :class:`int<PySide.QtCore.int>`
-    :rtype: :attr:`StatusEnum<NatronEngine.Natron.StatusEnum>`
+    :rtype: :class:`bool<PySide.QtCore.bool>`
 
 Attempts to remove the *nth* control point (sorted in increasing X order) of the parametric
 curve at the given *dimension*.
 
-This function returns a NatronEngine.Natron.StatusEnum.eStatusOK upon success, otherwise
-NatronEngine.Natron.StatusEnum.eStatusFailed is returned upon failure.
-
+This function returns a True upon success, otherwise
+False is returned upon failure.
 
 .. method:: NatronEngine.ParametricParam.getCurveColor(dimension)
 
@@ -143,18 +140,18 @@ Returns the number of control points of the curve at the given *dimension*.
     :param nthCtl: :class:`int<PySide.QtCore.int>`
     :rtype: :class:`tuple`
 
-Returns a *tuple* containing informations about the *nth* control point (sorted by increasing X order)
+Returns a *tuple* containing information about the *nth* control point (sorted by increasing X order)
 control point of the curve at the given *dimension*.
 The tuple is composed of 5 members:
 
-     [status: :class:`StatusEnum<NatronEngine.Natron.StatusEnum>`,
+     [status: :class:`bool<PySide.QtCore.bool>`,
      key : :class:`float`,
      value: :class:`float`,
      left derivative: :class:`float`,
      right derivative: :class:`float`]
 
-This function returns in the status a NatronEngine.Natron.StatusEnum.eStatusOK upon success, otherwise
-NatronEngine.Natron.StatusEnum.eStatusFailed is returned upon failure.
+This function returns a True upon success, otherwise
+False is returned upon failure.
 
 .. method:: NatronEngine.ParametricParam.getValue(dimension, parametricPosition)
 
@@ -191,7 +188,7 @@ Set the color of the curve at the given *dimension*.
     :param value: :class:`float<PySide.QtCore.double>`
     :param leftDerivative: :class:`float<PySide.QtCore.double>`
     :param rightDerivative: :class:`float<PySide.QtCore.double>`
-    :rtype: :attr:`StatusEnum<NatronEngine.Natron.StatusEnum>`
+    :rtype: :class:`bool<PySide.QtCore.bool>`
 
 
 Set the value of an existing control point on the curve at the given *dimension*.
@@ -199,16 +196,16 @@ The *nthCtl* parameter is the (zero based) index of the control point (by increa
 The point will be placed at the coordinates defined by (key,value) and will have the derivatives
 given by *leftDerivative* and *rightDerivatives*.
 
-This function returns a NatronEngine.Natron.StatusEnum.eStatusOK upon success, otherwise
-NatronEngine.Natron.StatusEnum.eStatusFailed is returned upon failure.
+This function returns a True upon success, otherwise
+False is returned upon failure.
 
 
 .. method:: NatronEngine.ParametricParam.setNthControlPointInterpolation(dimension, nthCtl, interpolation)
 
     :param dimension: :class:`int<PySide.QtCore.int>`
     :param nthCtl: :class:`int<PySide.QtCore.int>`
-    :param interpolation: :class:`KeyFrameTypeEnum<NatronEngine.Natron.KeyframeTypeEnum>`
-    :rtype: :attr:`StatusEnum<NatronEngine.Natron.StatusEnum>`
+    :param interpolation :class:`KeyFrameTypeEnum<NatronEngine.Natron.KeyframeTypeEnum>`
+    :rtype: :class:`bool<PySide.QtCore.bool>`
 
 Set the interpolation type of the curve surrounding the control point at the given index *nthCtl*.
 

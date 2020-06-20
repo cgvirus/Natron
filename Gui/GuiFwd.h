@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,6 +37,7 @@ class QAction;
 class QCheckBox;
 class QColor;
 class QCursor;
+class QDialogButtonBox;
 class QDragEnterEvent;
 class QDragLeaveEvent;
 class QDragMoveEvent;
@@ -107,28 +109,15 @@ class AnimationModuleSelectionProvider;
 class AnimationModuleTreeView;
 class AnimationModuleView;
 class BackdropGui;
-class BezierCPCurveGui;
 class BoundAction;
 class Button;
-class ChannelsComboBox;
 class ClickableLabel;
 class ColoredFrame;
 class ComboBox;
-class ComboBoxMenuNode;
-class CurveEditor;
 class CurveGui;
-class CurveSelection;
-class CurveWidget;
-class DSKnob;
-class DSNode;
-class DefaultInteractI;
 class DialogButtonBox;
 class DockablePanel;
 class DocumentationManager;
-class DopeSheet;
-class DopeSheetEditor;
-class DopeSheetKey;
-class DopeSheetView;
 class DroppedTreeItem;
 class DroppedTreeItem;
 class Edge;
@@ -140,17 +129,13 @@ class GroupKnobDialog;
 class Gui;
 class GuiAppInstance;
 class GuiGLContext;
-class GuiLayoutSerialization;
-class HierarchyView;
+class Histogram;
 class Histogram;
 class HostOverlay;
 class InfoViewerWidget;
-class InspectorNode;
-class KeyBoundAction;
 class KeybindRecorder;
 class KnobAnim;
 class KnobClickableLabel;
-class KnobCurveGui;
 class KnobGui;
 class KnobGuiColor;
 class KnobGuiContainerHelper;
@@ -163,7 +148,6 @@ class KnobGuiTable;
 class KnobGuiWidgets;
 class KnobHolder;
 class KnobItemsTableGui;
-class KnobPageGui;
 class KnobWidgetDnD;
 class KnobsHolderAnimBase;
 class Label;
@@ -171,12 +155,8 @@ class LineEdit;
 class LinkArrow;
 class Menu;
 class MenuWithToolTips;
-class MultiInstancePanel;
 class NodeAnim;
-class NodeBackdropSerialization;
-class NodeClipBoard;
 class NodeCollection;
-class NodeCurveEditorElement;
 class NodeGraph;
 class NodeGraphPixmapItem;
 class NodeGraphRectItem;
@@ -184,8 +164,6 @@ class NodeGraphTextItem;
 class NodeGui;
 class NodeGuiI;
 class NodeGuiIndicator;
-class NodeGuiSerialization;
-class NodeSerialization;
 class NodeSettingsPanel;
 class NodeViewerContext;
 class PanelWidget;
@@ -193,14 +171,10 @@ class PreferencesPanel;
 class ProgressPanel;
 class ProgressTaskInfo;
 class ProjectGui;
-class ProjectGuiSerialization;
 class PropertiesBinWrapper;
 class PythonPanelSerialization;
 class RectI;
 class RenderStatsDialog;
-class RotoGui;
-class RotoGuiSharedData;
-class RotoPanel;
 class ScaleSliderQWidget;
 class ScriptEditor;
 class ScriptObject;
@@ -219,9 +193,6 @@ class TableModel;
 class TableView;
 class TimeLineGui;
 class ToolButton;
-class TrackerGui;
-class TrackerPanel;
-class TrackerPanelV1;
 class VerticalColorBar;
 class ViewerGL;
 class ViewerTab;
@@ -229,20 +200,12 @@ class ViewerToolButton;
 class KnobPageGui;
 //Implementation in Gui/QtMac.mm
 namespace QtMac {
-bool isHighDPIInternal(const QWidget* w);
+double getHighDPIScaleFactorInternal(const QWidget* w);
+#if OBJC_OLD_DISPATCH_PROTOTYPES != 1
+void setupDockClickHandler(void (*)(void));
+#endif
 }
 
-NATRON_PYTHON_NAMESPACE_ENTER
-class GuiApp;
-class PyModalDialog;
-class PyPanel;
-class PyTabWidget;
-class IntParam;
-class StringParam;
-typedef boost::shared_ptr<StringParam> StringParamPtr;
-typedef boost::shared_ptr<IntParam> IntParamPtr;
-typedef boost::shared_ptr<PyModalDialog> PyModalDialogPtr;
-NATRON_PYTHON_NAMESPACE_EXIT
 
 typedef boost::shared_ptr<AnimItemBase> AnimItemBasePtr;
 typedef boost::shared_ptr<AnimationModule> AnimationModulePtr;
@@ -250,20 +213,10 @@ typedef boost::shared_ptr<AnimationModuleBase> AnimationModuleBasePtr;
 typedef boost::shared_ptr<AnimationModuleSelectionModel> AnimationModuleSelectionModelPtr;
 typedef boost::shared_ptr<AnimationModuleSelectionProvider> AnimationModuleSelectionProviderPtr;
 typedef boost::shared_ptr<BackdropGui> BackdropGuiPtr;
-typedef boost::shared_ptr<BezierCPCurveGui> BezierCPCurveGuiPtr;
-typedef boost::shared_ptr<ComboBoxMenuNode> ComboBoxMenuNodePtr;
 typedef boost::shared_ptr<CurveGui> CurveGuiPtr;
-typedef boost::shared_ptr<DSKnob> DSKnobPtr;
-typedef boost::shared_ptr<DSNode> DSNodePtr;
-typedef boost::shared_ptr<DefaultInteractI> DefaultInteractIPtr;
-typedef boost::shared_ptr<DopeSheetKey> DopeSheetKeyPtr;
-typedef boost::shared_ptr<DroppedTreeItem> DroppedTreeItemPtr;
 typedef boost::shared_ptr<FileDialogPreviewProvider> FileDialogPreviewProviderPtr;
 typedef boost::shared_ptr<GuiAppInstance> GuiAppInstancePtr;
-typedef boost::shared_ptr<HostOverlay> HostOverlayPtr;
-typedef boost::shared_ptr<InspectorNode> InspectorNodePtr;
 typedef boost::shared_ptr<KnobAnim> KnobAnimPtr;
-typedef boost::shared_ptr<KnobCurveGui> KnobCurveGuiPtr;
 typedef boost::shared_ptr<KnobGui const> KnobGuiConstPtr;
 typedef boost::shared_ptr<KnobGui> KnobGuiPtr;
 typedef boost::shared_ptr<KnobGuiColor> KnobGuiColorPtr;
@@ -271,19 +224,14 @@ typedef boost::shared_ptr<KnobGuiDouble> KnobGuiDoublePtr;
 typedef boost::shared_ptr<KnobGuiInt> KnobGuiIntPtr;
 typedef boost::shared_ptr<KnobGuiWidgets> KnobGuiWidgetsPtr;
 typedef boost::shared_ptr<KnobItemsTableGui> KnobItemsTableGuiPtr;
-typedef boost::shared_ptr<KnobPageGui> KnobPageGuiPtr;
 typedef boost::shared_ptr<KnobWidgetDnD> KnobWidgetDnDPtr;
 typedef boost::shared_ptr<KnobsHolderAnimBase> KnobsHolderAnimBasePtr;
-typedef boost::shared_ptr<MultiInstancePanel> MultiInstancePanelPtr;
 typedef boost::shared_ptr<NodeAnim> NodeAnimPtr;
 typedef boost::shared_ptr<NodeGui> NodeGuiPtr;
 typedef boost::shared_ptr<NodeGuiI> NodeGuiIPtr;
 typedef boost::shared_ptr<NodeGuiIndicator> NodeGuiIndicatorPtr;
-typedef boost::shared_ptr<NodeGuiSerialization> NodeGuiSerializationPtr;
 typedef boost::shared_ptr<NodeViewerContext> NodeViewerContextPtr;
 typedef boost::shared_ptr<ProgressTaskInfo> ProgressTaskInfoPtr;
-typedef boost::shared_ptr<PythonPanelSerialization> PythonPanelSerializationPtr;
-typedef boost::shared_ptr<SelectedKey> SelectedKeyPtr;
 typedef boost::shared_ptr<TableItem> TableItemPtr;
 typedef boost::shared_ptr<TableItemAnim> TableItemAnimPtr;
 typedef boost::shared_ptr<TableModel> TableModelPtr;
@@ -293,11 +241,8 @@ typedef boost::weak_ptr<AnimationModule> AnimationModuleWPtr;
 typedef boost::weak_ptr<AnimationModuleBase> AnimationModuleBaseWPtr;
 typedef boost::weak_ptr<AnimationModuleSelectionModel> AnimationModuleSelectionModelWPtr;
 typedef boost::weak_ptr<AnimationModuleSelectionProvider> AnimationModuleSelectionProviderWPtr;
-typedef boost::weak_ptr<DSKnob> DSKnobWPtr;
-typedef boost::weak_ptr<DSNode> DSNodeWPtr;
 typedef boost::weak_ptr<GuiAppInstance> GuiAppInstanceWPtr;
 typedef boost::weak_ptr<KnobAnim> KnobAnimWPtr;
-typedef boost::weak_ptr<KnobCurveGui> KnobCurveGuiWPtr;
 typedef boost::weak_ptr<KnobGui> KnobGuiWPtr;
 typedef boost::weak_ptr<KnobGuiWidgets> KnobGuiWidgetsWPtr;
 typedef boost::weak_ptr<KnobItemsTableGui> KnobItemsTableGuiWPtr;
@@ -311,6 +256,20 @@ typedef boost::weak_ptr<TableItemAnim> TableItemAnimWPtr;
 typedef boost::weak_ptr<TableModel> TableModelWPtr;
 typedef std::list<NodeGuiPtr> NodesGuiList;
 typedef std::list<NodeGuiWPtr> NodesGuiWList;
+
+
+NATRON_PYTHON_NAMESPACE_ENTER
+
+class DialogParamHolder;
+class GuiApp;
+class PyModalDialog;
+class PyPanel;
+class PyTabWidget;
+
+typedef boost::shared_ptr<DialogParamHolder> DialogParamHolderPtr;
+
+NATRON_PYTHON_NAMESPACE_EXIT
+
 
 NATRON_NAMESPACE_EXIT
 

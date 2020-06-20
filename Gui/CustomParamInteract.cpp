@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,14 +33,15 @@
 #include <QMouseEvent>
 #include <QtCore/QByteArray>
 
+#include "Engine/OverlayInteractBase.h"
+#include "Engine/Knob.h"
+#include "Engine/AppInstance.h"
+#include "Engine/OSGLFunctions.h"
+#include "Engine/TimeLine.h"
+
 #include "Gui/KnobGui.h"
 #include "Gui/QtEnumConvert.h"
 #include "Gui/GuiApplicationManager.h"
-
-#include "Engine/OfxOverlayInteract.h"
-#include "Engine/Knob.h"
-#include "Engine/AppInstance.h"
-#include "Engine/TimeLine.h"
 
 
 NATRON_NAMESPACE_ENTER
@@ -47,40 +49,33 @@ NATRON_NAMESPACE_ENTER
 struct CustomParamInteractPrivate
 {
     KnobGuiWPtr knob;
-    OFX::Host::Param::Instance* ofxParam;
-    OfxParamOverlayInteractPtr entryPoint;
+    OverlayInteractBasePtr interact;
     QSize preferredSize;
     double par;
     GLuint savedTexture;
 
     CustomParamInteractPrivate(const KnobGuiPtr& knob,
-                               void* ofxParamHandle,
-                               const OfxParamOverlayInteractPtr & entryPoint)
+                               const OverlayInteractBasePtr & interact)
         : knob(knob)
-        , ofxParam(0)
-        , entryPoint(entryPoint)
+        , interact(interact)
         , preferredSize()
         , par(0)
         , savedTexture(0)
     {
-        assert(entryPoint && ofxParamHandle);
-        ofxParam = reinterpret_cast<OFX::Host::Param::Instance*>(ofxParamHandle);
-        assert( ofxParam->verifyMagic() );
-
-        par = entryPoint->getProperties().getIntProperty(kOfxParamPropInteractSizeAspect);
+        assert(interact);
+        interact->getPixelAspectRatio(par);
         int pW, pH;
-        entryPoint->getPreferredSize(pW, pH);
+        interact->getPreferredSize(pW, pH);
         preferredSize.setWidth(pW);
         preferredSize.setHeight(pH);
     }
 };
 
 CustomParamInteract::CustomParamInteract(const KnobGuiPtr& knob,
-                                         void* ofxParamHandle,
-                                         const OfxParamOverlayInteractPtr & entryPoint,
+                                         const OverlayInteractBasePtr & entryPoint,
                                          QWidget* parent)
     : QGLWidget(parent)
-    , _imp( new CustomParamInteractPrivate(knob, ofxParamHandle, entryPoint) )
+    , _imp( new CustomParamInteractPrivate(knob, entryPoint) )
 {
     double minW, minH;
 
@@ -104,7 +99,7 @@ CustomParamInteract::paintGL()
     }
 
 
-    glCheckError();
+    glCheckError(GL_GPU);
 
     /*
        http://openfx.sourceforge.net/Documentation/1.3/ofxProgrammingReference.html#ParametersInteracts
@@ -113,19 +108,21 @@ CustomParamInteract::paintGL()
        The GL_MODELVIEW matrix will be the identity matrix.
      */
     {
-        GLProtectAttrib a(GL_TRANSFORM_BIT);
-        GLProtectMatrix p(GL_PROJECTION);
-        glLoadIdentity();
-        glOrtho(-0.5, width() - 0.5, -0.5, height() - 0.5, 1, -1);
-        GLProtectMatrix m(GL_MODELVIEW);
-        glLoadIdentity();
+        GLProtectAttrib<GL_GPU> a(GL_TRANSFORM_BIT);
+        GLProtectMatrix<GL_GPU> p(GL_PROJECTION);
+        GL_GPU::LoadIdentity();
+        GL_GPU::Ortho(-0.5, width() - 0.5, -0.5, height() - 0.5, 1, -1);
+        GLProtectMatrix<GL_GPU> m(GL_MODELVIEW);
+        GL_GPU::LoadIdentity();
 
         /*A parameter's interact draw function will have full responsibility for drawing the interact, including clearing the background and swapping buffers.*/
         OfxPointD scale;
         scale.x = scale.y = 1.;
-        double time = _imp->knob.lock()->getKnob()->getHolder()->getApp()->getTimeLine()->currentFrame();
-        _imp->entryPoint->drawAction(time, scale, /*view=*/ 0, _imp->entryPoint->hasColorPicker() ? &_imp->entryPoint->getLastColorPickerColor() : /*colourPicker=*/0);
-        glCheckError();
+        TimeValue time(_imp->knob.lock()->getKnob()->getHolder()->getApp()->getTimeLine()->currentFrame());
+
+        _imp->interact->drawOverlay_public(this, time, RenderScale(1.), ViewIdx(0));
+
+        glCheckError(GL_GPU);
     } // GLProtectAttrib a(GL_TRANSFORM_BIT);
 }
 
@@ -152,8 +149,8 @@ CustomParamInteract::resizeGL(int w,
     if (h == 0) {
         h = 1;
     }
-    glViewport (0, 0, w, h);
-    _imp->entryPoint->setSize(w, h);
+    GL_GPU::Viewport (0, 0, w, h);
+    _imp->interact->setSize(w, h);
 }
 
 QSize
@@ -180,6 +177,30 @@ CustomParamInteract::getViewportSize(double &w,
 {
     w = width();
     h = height();
+}
+
+
+void
+CustomParamInteract::getOpenGLContextFormat(int* depthPerComponents, bool* hasAlpha) const
+{
+    QGLFormat f = format();
+    *hasAlpha = f.alpha();
+    int r = f.redBufferSize();
+    if (r == -1) {
+        r = 8;// taken from qgl.h
+    }
+    int g = f.greenBufferSize();
+    if (g == -1) {
+        g = 8;// taken from qgl.h
+    }
+    int b = f.blueBufferSize();
+    if (b == -1) {
+        b = 8;// taken from qgl.h
+    }
+    int size = r;
+    size = std::min(size, g);
+    size = std::min(size, b);
+    *depthPerComponents = size;
 }
 
 void
@@ -233,24 +254,24 @@ CustomParamInteract::saveOpenGLContext()
 {
     assert( QThread::currentThread() == qApp->thread() );
 
-    glGetIntegerv(GL_TEXTURE_BINDING_2D, (GLint*)&_imp->savedTexture);
+    GL_GPU::GetIntegerv(GL_TEXTURE_BINDING_2D, (GLint*)&_imp->savedTexture);
     //glGetIntegerv(GL_ACTIVE_TEXTURE, (GLint*)&_imp->activeTexture);
-    glCheckAttribStack();
-    glPushAttrib(GL_ALL_ATTRIB_BITS);
-    glCheckClientAttribStack();
-    glPushClientAttrib(GL_ALL_ATTRIB_BITS);
-    glMatrixMode(GL_PROJECTION);
-    glCheckProjectionStack();
-    glPushMatrix();
-    glMatrixMode(GL_MODELVIEW);
-    glCheckModelviewStack();
-    glPushMatrix();
+    glCheckAttribStack(GL_GPU);
+    GL_GPU::PushAttrib(GL_ALL_ATTRIB_BITS);
+    glCheckClientAttribStack(GL_GPU);
+    GL_GPU::PushClientAttrib(GL_ALL_ATTRIB_BITS);
+    GL_GPU::MatrixMode(GL_PROJECTION);
+    glCheckProjectionStack(GL_GPU);
+    GL_GPU::PushMatrix();
+    GL_GPU::MatrixMode(GL_MODELVIEW);
+    glCheckModelviewStack(GL_GPU);
+    GL_GPU::PushMatrix();
 
     // set defaults to work around OFX plugin bugs
-    glEnable(GL_BLEND); // or TuttleHistogramKeyer doesn't work - maybe other OFX plugins rely on this
+    GL_GPU::Enable(GL_BLEND); // or TuttleHistogramKeyer doesn't work - maybe other OFX plugins rely on this
     //glEnable(GL_TEXTURE_2D);					//Activate texturing
     //glActiveTexture (GL_TEXTURE0);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // or TuttleHistogramKeyer doesn't work - maybe other OFX plugins rely on this
+    GL_GPU::BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); // or TuttleHistogramKeyer doesn't work - maybe other OFX plugins rely on this
     //glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE); // GL_MODULATE is the default, set it
 }
 
@@ -259,14 +280,14 @@ CustomParamInteract::restoreOpenGLContext()
 {
     assert( QThread::currentThread() == qApp->thread() );
 
-    glBindTexture(GL_TEXTURE_2D, _imp->savedTexture);
+    GL_GPU::BindTexture(GL_TEXTURE_2D, _imp->savedTexture);
     //glActiveTexture(_imp->activeTexture);
-    glMatrixMode(GL_PROJECTION);
-    glPopMatrix();
-    glMatrixMode(GL_MODELVIEW);
-    glPopMatrix();
-    glPopClientAttrib();
-    glPopAttrib();
+    GL_GPU::MatrixMode(GL_PROJECTION);
+    GL_GPU::PopMatrix();
+    GL_GPU::MatrixMode(GL_MODELVIEW);
+    GL_GPU::PopMatrix();
+    GL_GPU::PopClientAttrib();
+    GL_GPU::PopAttrib();
 }
 
 /**
@@ -315,18 +336,17 @@ CustomParamInteract::getCursorPosition(double& x,
 void
 CustomParamInteract::mousePressEvent(QMouseEvent* e)
 {
-    OfxPointD scale;
 
-    scale.x = scale.y = 1.;
-    double time = _imp->knob.lock()->getKnob()->getHolder()->getApp()->getTimeLine()->currentFrame();
-    OfxPointD pos;
-    OfxPointI viewportPos;
-    pos.x = e->x();
-    pos.y = height() - 1 - e->y();
-    viewportPos.x = pos.x;
-    viewportPos.y = pos.y;
-    OfxStatus stat = _imp->entryPoint->penDownAction(time, scale, /*view=*/ 0, _imp->entryPoint->hasColorPicker() ? &_imp->entryPoint->getLastColorPickerColor() : /*colourPicker=*/0, pos, viewportPos, /*pressure=*/ 1.);
-    if (stat == kOfxStatOK) {
+    TimeValue time(_imp->knob.lock()->getKnob()->getHolder()->getApp()->getTimeLine()->currentFrame());
+    QPointF pos;
+    QPointF viewportPos;
+    pos.rx() = e->x();
+    pos.ry() = height() - 1 - e->y();
+    viewportPos.rx() = pos.x();
+    viewportPos.ry() = pos.y();
+
+    bool caught = _imp->interact->onOverlayPenDown_public(this, time, RenderScale(1.), ViewIdx(0), viewportPos, pos, 1. /*pressure*/, TimeValue(0.) /*timestamp*/, ePenTypeLMB);
+    if (caught) {
         update();
     }
 }
@@ -334,18 +354,18 @@ CustomParamInteract::mousePressEvent(QMouseEvent* e)
 void
 CustomParamInteract::mouseMoveEvent(QMouseEvent* e)
 {
-    OfxPointD scale;
 
-    scale.x = scale.y = 1.;
-    double time = _imp->knob.lock()->getKnob()->getHolder()->getApp()->getTimeLine()->currentFrame();
-    OfxPointD pos;
-    OfxPointI viewportPos;
-    pos.x = e->x();
-    pos.y = height() - 1 - e->y();
-    viewportPos.x = pos.x;
-    viewportPos.y = pos.y;
-    OfxStatus stat = _imp->entryPoint->penMotionAction(time, scale, /*view=*/ 0, _imp->entryPoint->hasColorPicker() ? &_imp->entryPoint->getLastColorPickerColor() : /*colourPicker=*/0, pos, viewportPos, /*pressure=*/ 1.);
-    if (stat == kOfxStatOK) {
+    TimeValue time(_imp->knob.lock()->getKnob()->getHolder()->getApp()->getTimeLine()->currentFrame());
+    QPointF pos;
+    QPointF viewportPos;
+    pos.rx() = e->x();
+    pos.ry() = height() - 1 - e->y();
+    viewportPos.rx() = pos.x();
+    viewportPos.ry() = pos.y();
+
+    bool caught = _imp->interact->onOverlayPenMotion_public(this, time, RenderScale(1.), ViewIdx(0), viewportPos, pos, 1. /*pressure*/, TimeValue(0.) /*timestamp*/);
+
+    if (caught) {
         update();
     }
 }
@@ -353,18 +373,17 @@ CustomParamInteract::mouseMoveEvent(QMouseEvent* e)
 void
 CustomParamInteract::mouseReleaseEvent(QMouseEvent* e)
 {
-    OfxPointD scale;
 
-    scale.x = scale.y = 1.;
-    double time = _imp->knob.lock()->getKnob()->getHolder()->getApp()->getTimeLine()->currentFrame();
-    OfxPointD pos;
-    OfxPointI viewportPos;
-    pos.x = e->x();
-    pos.y = height() - 1 - e->y();
-    viewportPos.x = pos.x;
-    viewportPos.y = pos.y;
-    OfxStatus stat = _imp->entryPoint->penUpAction(time, scale, /*view=*/ 0, _imp->entryPoint->hasColorPicker() ? &_imp->entryPoint->getLastColorPickerColor() : /*colourPicker=*/0, pos, viewportPos, /*pressure=*/ 1.);
-    if (stat == kOfxStatOK) {
+    TimeValue time(_imp->knob.lock()->getKnob()->getHolder()->getApp()->getTimeLine()->currentFrame());
+    QPointF pos;
+    QPointF viewportPos;
+    pos.rx() = e->x();
+    pos.ry() = height() - 1 - e->y();
+    viewportPos.rx() = pos.x();
+    viewportPos.ry() = pos.y();
+
+    bool caught = _imp->interact->onOverlayPenUp_public(this, time, RenderScale(1.), ViewIdx(0), viewportPos, pos, 1. /*pressure*/, TimeValue(0.) /*timestamp*/);
+    if (caught) {
         update();
     }
 }
@@ -372,12 +391,11 @@ CustomParamInteract::mouseReleaseEvent(QMouseEvent* e)
 void
 CustomParamInteract::focusInEvent(QFocusEvent* /*e*/)
 {
-    OfxPointD scale;
 
-    scale.x = scale.y = 1.;
-    double time = _imp->knob.lock()->getKnob()->getHolder()->getApp()->getTimeLine()->currentFrame();
-    OfxStatus stat = _imp->entryPoint->gainFocusAction(time, scale, /*view=*/ 0, _imp->entryPoint->hasColorPicker() ? &_imp->entryPoint->getLastColorPickerColor() : /*colourPicker=*/0);
-    if (stat == kOfxStatOK) {
+    TimeValue time(_imp->knob.lock()->getKnob()->getHolder()->getApp()->getTimeLine()->currentFrame());
+
+    bool caught = _imp->interact->onOverlayFocusGained_public(this, time, RenderScale(1.), ViewIdx(0));
+    if (caught) {
         update();
     }
 }
@@ -385,12 +403,10 @@ CustomParamInteract::focusInEvent(QFocusEvent* /*e*/)
 void
 CustomParamInteract::focusOutEvent(QFocusEvent* /*e*/)
 {
-    OfxPointD scale;
 
-    scale.x = scale.y = 1.;
-    double time = _imp->knob.lock()->getKnob()->getHolder()->getApp()->getTimeLine()->currentFrame();
-    OfxStatus stat = _imp->entryPoint->loseFocusAction(time, scale, /*view=*/ 0, _imp->entryPoint->hasColorPicker() ? &_imp->entryPoint->getLastColorPickerColor() : /*colourPicker=*/0);
-    if (stat == kOfxStatOK) {
+    TimeValue time(_imp->knob.lock()->getKnob()->getHolder()->getApp()->getTimeLine()->currentFrame());
+    bool caught = _imp->interact->onOverlayFocusLost_public(this, time, RenderScale(1.), ViewIdx(0));
+    if (caught) {
         update();
     }
 }
@@ -398,18 +414,16 @@ CustomParamInteract::focusOutEvent(QFocusEvent* /*e*/)
 void
 CustomParamInteract::keyPressEvent(QKeyEvent* e)
 {
-    OfxPointD scale;
 
-    scale.x = scale.y = 1.;
-    double time = _imp->knob.lock()->getKnob()->getHolder()->getApp()->getTimeLine()->currentFrame();
+    TimeValue time(_imp->knob.lock()->getKnob()->getHolder()->getApp()->getTimeLine()->currentFrame());
     QByteArray keyStr;
-    OfxStatus stat;
+    bool caught;
     if ( e->isAutoRepeat() ) {
-        stat = _imp->entryPoint->keyRepeatAction( time, scale, /*view=*/ 0, _imp->entryPoint->hasColorPicker() ? &_imp->entryPoint->getLastColorPickerColor() : /*colourPicker=*/0, (int)QtEnumConvert::fromQtKey( (Qt::Key)e->key() ), keyStr.data() );
+        caught = _imp->interact->onOverlayKeyDown_public(this, time, RenderScale(1.), ViewIdx(0), QtEnumConvert::fromQtKey( (Qt::Key)e->key() ), QtEnumConvert::fromQtModifiers(e->modifiers()));
     } else {
-        stat = _imp->entryPoint->keyDownAction( time, scale, /*view=*/ 0,_imp->entryPoint->hasColorPicker() ? &_imp->entryPoint->getLastColorPickerColor() : /*colourPicker=*/0, (int)QtEnumConvert::fromQtKey( (Qt::Key)e->key() ), keyStr.data() );
+        caught = _imp->interact->onOverlayKeyRepeat_public(this, time, RenderScale(1.), ViewIdx(0), QtEnumConvert::fromQtKey( (Qt::Key)e->key() ), QtEnumConvert::fromQtModifiers(e->modifiers()));
     }
-    if (stat == kOfxStatOK) {
+    if (caught) {
         update();
     }
 }
@@ -417,13 +431,11 @@ CustomParamInteract::keyPressEvent(QKeyEvent* e)
 void
 CustomParamInteract::keyReleaseEvent(QKeyEvent* e)
 {
-    OfxPointD scale;
 
-    scale.x = scale.y = 1.;
-    double time = _imp->knob.lock()->getKnob()->getHolder()->getApp()->getTimeLine()->currentFrame();
+    TimeValue time(_imp->knob.lock()->getKnob()->getHolder()->getApp()->getTimeLine()->currentFrame());
     QByteArray keyStr;
-    OfxStatus stat = _imp->entryPoint->keyUpAction( time, scale, /*view=*/ 0, _imp->entryPoint->hasColorPicker() ? &_imp->entryPoint->getLastColorPickerColor() : /*colourPicker=*/0, (int)QtEnumConvert::fromQtKey( (Qt::Key)e->key() ), keyStr.data() );
-    if (stat == kOfxStatOK) {
+    bool caught = _imp->interact->onOverlayKeyUp_public(this, time, RenderScale(1.), ViewIdx(0), QtEnumConvert::fromQtKey( (Qt::Key)e->key() ), QtEnumConvert::fromQtModifiers(e->modifiers()));
+    if (caught) {
         update();
     }
 }

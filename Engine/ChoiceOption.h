@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -53,6 +54,7 @@ struct ChoiceOption
         
     }
 
+
     explicit ChoiceOption(const std::string& id_)
     : id(id_)
     , label()
@@ -78,7 +80,7 @@ struct ChoiceOption
     {
         return id != other.id;
     }
-    
+
 };
 
 NATRON_NAMESPACE_EXIT

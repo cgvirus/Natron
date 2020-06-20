@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,106 +25,79 @@
 
 #include "NodePrivate.h"
 
-#include <QtCore/QThread>
-
-#include <sstream>
-
-#include "Engine/AppInstance.h"
-#include "Engine/GroupOutput.h"
-#include "Engine/NodeGroup.h"
-#include "Engine/NodeSerialization.h"
-
 NATRON_NAMESPACE_ENTER
 
-void
-Node::initNodeScriptName(const NodeSerialization* serialization, const QString& fixedName)
+
+static bool findAvailableName(const std::string &baseName, const NodeCollectionPtr& group, const NodePtr& node, std::string* name)
 {
-    /*
-     If the serialization is not null, we are either pasting a node or loading it from a project.
-     */
-    NodeCollectionPtr group = getGroup();
-    bool isMultiInstanceChild = false;
-    if ( !_imp->multiInstanceParentName.empty() ) {
-        isMultiInstanceChild = true;
-    }
-
-    if (!fixedName.isEmpty()) {
-
-        std::string baseName = fixedName.toStdString();
-        std::string name = baseName;
-        int no = 1;
-        do {
-            if (no > 1) {
-                std::stringstream ss;
-                ss << baseName;
-                ss << '_';
-                ss << no;
-                name = ss.str();
-            }
-            ++no;
-        } while ( group && group->checkIfNodeNameExists(name, this) );
-
-        //This version of setScriptName will not error if the name is invalid or already taken
-        setScriptName_no_error_check(name);
-
-    } else if (serialization) {
-        if ( group && !group->isCacheIDAlreadyTaken( serialization->getCacheID() ) ) {
-            QMutexLocker k(&_imp->nameMutex);
-            _imp->cacheID = serialization->getCacheID();
+    *name = baseName;
+    int no = 1;
+    do {
+        if (no > 1) {
+            std::stringstream ss;
+            ss << baseName;
+            ss << '_';
+            ss << no;
+            *name = ss.str();
         }
-        const std::string& baseName = serialization->getNodeScriptName();
-        std::string name = baseName;
-        int no = 1;
-        do {
-            if (no > 1) {
-                std::stringstream ss;
-                ss << baseName;
-                ss << '_';
-                ss << no;
-                name = ss.str();
-            }
-            ++no;
-        } while ( group && group->checkIfNodeNameExists(name, this) );
+        ++no;
+    } while ( group && group->checkIfNodeNameExists(*name, node) );
 
-        //This version of setScriptName will not error if the name is invalid or already taken
-        setScriptName_no_error_check(name);
-        setLabel( serialization->getNodeLabel() );
-
-    } else {
-        std::string name;
-        QString pluginLabel;
-        AppManager::AppTypeEnum appType = appPTR->getAppType();
-        if (_imp->plugin) {
-            if ( ( appType == AppManager::eAppTypeBackground) ||
-                 ( appType == AppManager::eAppTypeGui) ||
-                 ( appType == AppManager::eAppTypeInterpreter) ) {
-                pluginLabel = _imp->plugin->getLabelWithoutSuffix();
-            } else {
-                pluginLabel = _imp->plugin->getPluginLabel();
-            }
-        }
-        try {
-            if (group) {
-                group->initNodeName(isMultiInstanceChild ? _imp->multiInstanceParentName + '_' : pluginLabel.toStdString(), &name);
-            } else {
-                name = NATRON_PYTHON_NAMESPACE::makeNameScriptFriendly( pluginLabel.toStdString() );
-            }
-        } catch (...) {
-        }
-
-        setNameInternal(name.c_str(), false);
-    }
-
-
-
+    // When no == 2 the name was available
+    return no == 2;
 }
 
+void
+Node::initNodeScriptName(const SERIALIZATION_NAMESPACE::NodeSerialization* serialization, const QString& fixedName)
+{
+    // If the serialization is not null, we are either pasting a node or loading it from a project.
+    if (!fixedName.isEmpty()) {
+
+        NodeCollectionPtr group = getGroup();
+        std::string name;
+        findAvailableName(fixedName.toStdString(), group, shared_from_this(), &name);
+
+        //This version of setScriptName will not error if the name is invalid or already taken
+        setScriptName_no_error_check(name);
+
+        setLabel(name);
+
+
+    } else if (serialization) {
+
+        if (serialization->_nodeScriptName.empty()) {
+            // The serialized script name may be empty in the case we are loading from a PyPlug/Preset directly
+            initNodeNameFallbackOnPluginDefault();
+        } else {
+            NodeCollectionPtr group = getGroup();
+            std::string name;
+            bool nameAvailable = findAvailableName(serialization->_nodeScriptName, group, shared_from_this(), &name);
+
+            // This version of setScriptName will not error if the name is invalid or already taken
+            setScriptName_no_error_check(name);
+
+
+            // If the script name was not available, give the same script name to the label, most likely this is a copy/paste operation.
+            if (!nameAvailable) {
+                setLabel(name);
+            } else {
+                setLabel(serialization->_nodeLabel);
+            }
+        }
+        
+    } else {
+        initNodeNameFallbackOnPluginDefault();
+    }
+    
+    
+    
+}
 
 const std::string &
 Node::getScriptName() const
 {
     ////Only called by the main-thread
-    assert( QThread::currentThread() == qApp->thread() );
+    //assert( QThread::currentThread() == qApp->thread() );
     QMutexLocker l(&_imp->nameMutex);
 
     return _imp->scriptName;
@@ -144,7 +118,7 @@ prependGroupNameRecursive(const NodePtr& group,
     name.insert(0, ".");
     name.insert( 0, group->getScriptName_mt_safe() );
     NodeCollectionPtr hasParentGroup = group->getGroup();
-    NodeGroupPtr isGrp = boost::dynamic_pointer_cast<NodeGroup>(hasParentGroup);
+    NodeGroupPtr isGrp = toNodeGroup(hasParentGroup);
     if (isGrp) {
         prependGroupNameRecursive(isGrp->getNode(), name);
     }
@@ -154,23 +128,21 @@ std::string
 Node::getFullyQualifiedNameInternal(const std::string& scriptName) const
 {
     std::string ret = scriptName;
-    NodePtr parent = getParentMultiInstance();
 
-    if (parent) {
-        prependGroupNameRecursive(parent, ret);
-    } else {
-        NodeCollectionPtr hasParentGroup = getGroup();
-        NodeGroup* isGrp = dynamic_cast<NodeGroup*>( hasParentGroup.get() );
-        if (isGrp) {
-            NodePtr grpNode = isGrp->getNode();
-            if (grpNode) {
-                prependGroupNameRecursive(grpNode, ret);
-            }
+
+    NodeCollectionPtr hasParentGroup = getGroup();
+    NodeGroupPtr isGrp = toNodeGroup(hasParentGroup);
+    if (isGrp) {
+        NodePtr grpNode = isGrp->getNode();
+        if (grpNode) {
+            prependGroupNameRecursive(grpNode, ret);
         }
     }
 
+
     return ret;
 }
+
 
 std::string
 Node::getFullyQualifiedName() const
@@ -178,23 +150,39 @@ Node::getFullyQualifiedName() const
     return getFullyQualifiedNameInternal( getScriptName_mt_safe() );
 }
 
+
+std::string
+Node::getContainerGroupFullyQualifiedName() const
+{
+    NodeCollectionPtr collection = getGroup();
+    NodeGroupPtr containerIsGroup = toNodeGroup(collection);
+    if (containerIsGroup) {
+        return  containerIsGroup->getNode()->getFullyQualifiedName();
+    }
+    return std::string();
+}
+
+
 void
 Node::setLabel(const std::string& label)
 {
     assert( QThread::currentThread() == qApp->thread() );
 
+    QString curLabel;
+    QString newLabel = QString::fromUtf8(label.c_str());
     {
         QMutexLocker k(&_imp->nameMutex);
         if (label == _imp->label) {
             return;
         }
+        curLabel = QString::fromUtf8(_imp->label.c_str());
         _imp->label = label;
     }
     NodeCollectionPtr collection = getGroup();
     if (collection) {
-        collection->notifyNodeNameChanged( shared_from_this() );
+        collection->notifyNodeLabelChanged( shared_from_this() );
     }
-    Q_EMIT labelChanged( QString::fromUtf8( label.c_str() ) );
+    Q_EMIT labelChanged(curLabel, newLabel );
 }
 
 const std::string&
@@ -222,29 +210,19 @@ Node::setScriptName_no_error_check(const std::string & name)
 
 static void
 insertDependenciesRecursive(Node* node,
-                            KnobI::ListenerDimsMap* dependencies)
+                            KnobDimViewKeySet* dependencies)
 {
     const KnobsVec & knobs = node->getKnobs();
 
     for (std::size_t i = 0; i < knobs.size(); ++i) {
-        KnobI::ListenerDimsMap dimDeps;
-        knobs[i]->getListeners(dimDeps);
-        for (KnobI::ListenerDimsMap::iterator it = dimDeps.begin(); it != dimDeps.end(); ++it) {
-            KnobI::ListenerDimsMap::iterator found = dependencies->find(it->first);
-            if ( found != dependencies->end() ) {
-                assert( found->second.size() == it->second.size() );
-                for (std::size_t j = 0; j < found->second.size(); ++j) {
-                    if (it->second[j].isExpr) {
-                        found->second[j].isListening |= it->second[j].isListening;
-                    }
-                }
-            } else {
-                dependencies->insert(*it);
-            }
+        KnobDimViewKeySet dimDeps;
+        knobs[i]->getListeners(dimDeps, KnobI::eListenersTypeExpression);
+        for (KnobDimViewKeySet::iterator it = dimDeps.begin(); it != dimDeps.end(); ++it) {
+            dependencies->insert(*it);
         }
     }
 
-    NodeGroup* isGroup = node->isEffectGroup();
+    NodeGroupPtr isGroup = node->isEffectNodeGroup();
     if (isGroup) {
         NodesList nodes = isGroup->getNodes();
         for (NodesList::iterator it = nodes.begin(); it != nodes.end(); ++it) {
@@ -288,7 +266,7 @@ Node::setNameInternal(const std::string& name,
     if (collection) {
         if (throwErrors) {
             try {
-                collection->checkNodeName(this, name, false, false, &newName);
+                collection->checkNodeName(shared_from_this(), name, false, false, &newName);
             } catch (const std::exception& e) {
                 LogEntry::LogEntryColor c;
                 if (getColor(&c.r, &c.g, &c.b)) {
@@ -300,13 +278,8 @@ Node::setNameInternal(const std::string& name,
                 return;
             }
         } else {
-            collection->checkNodeName(this, name, false, false, &newName);
+            collection->checkNodeName(shared_from_this(), name, false, false, &newName);
         }
-    }
-
-
-    if (oldName == newName) {
-        return;
     }
 
 
@@ -333,33 +306,19 @@ Node::setNameInternal(const std::string& name,
             }
         }
     }
-
-    bool mustSetCacheID;
+    QString oldLabel;
+    bool labelSet = false;
     {
         QMutexLocker l(&_imp->nameMutex);
         _imp->scriptName = newName;
-        mustSetCacheID = _imp->cacheID.empty();
+        oldLabel = QString::fromUtf8(_imp->label.c_str());
         ///Set the label at the same time if the label is empty
         if ( _imp->label.empty() ) {
             _imp->label = newName;
+            labelSet = true;
         }
     }
     std::string fullySpecifiedName = getFullyQualifiedName();
-
-    if (mustSetCacheID) {
-        std::string baseName = fullySpecifiedName;
-        std::string cacheID = fullySpecifiedName;
-        int i = 1;
-        while ( getGroup() && getGroup()->isCacheIDAlreadyTaken(cacheID) ) {
-            std::stringstream ss;
-            ss << baseName;
-            ss << i;
-            cacheID = ss.str();
-            ++i;
-        }
-        QMutexLocker l(&_imp->nameMutex);
-        _imp->cacheID = cacheID;
-    }
 
     if (collection) {
         if ( !oldName.empty() ) {
@@ -376,26 +335,26 @@ Node::setNameInternal(const std::string& name,
 
         if (_imp->nodeCreated) {
             ///For all knobs that have listeners, change in the expressions of listeners this knob script-name
-            KnobI::ListenerDimsMap dependencies;
+            KnobDimViewKeySet dependencies;
             insertDependenciesRecursive(this, &dependencies);
-            for (KnobI::ListenerDimsMap::iterator it = dependencies.begin(); it != dependencies.end(); ++it) {
-                KnobIPtr listener = it->first.lock();
+            for (KnobDimViewKeySet::iterator it = dependencies.begin(); it != dependencies.end(); ++it) {
+                KnobIPtr listener = it->knob.lock();
                 if (!listener) {
                     continue;
                 }
-                for (std::size_t d = 0; d < it->second.size(); ++d) {
-                    if (it->second[d].isListening && it->second[d].isExpr) {
-                        listener->replaceNodeNameInExpression(d, oldName, newName);
-                    }
-                }
+                listener->replaceNodeNameInExpression(it->dimension, it->view, oldName, newName);
+
             }
         }
     }
 
     QString qnewName = QString::fromUtf8( newName.c_str() );
     Q_EMIT scriptNameChanged(qnewName);
-    Q_EMIT labelChanged(qnewName);
+    if (labelSet) {
+        Q_EMIT labelChanged(oldLabel, qnewName);
+    }
 } // Node::setNameInternal
+
 
 void
 Node::setScriptName(const std::string& name)
@@ -403,19 +362,21 @@ Node::setScriptName(const std::string& name)
     std::string newName;
 
     if ( getGroup() ) {
-        getGroup()->checkNodeName(this, name, false, true, &newName);
+        getGroup()->checkNodeName(shared_from_this(), name, false, true, &newName);
     } else {
         newName = name;
     }
     //We do not allow setting the script-name of output nodes because we rely on it with NatronRenderer
-    if ( dynamic_cast<GroupOutput*>( _imp->effect.get() ) ) {
+    if ( isEffectGroupOutput() ) {
         throw std::runtime_error( tr("Changing the script-name of an Output node is not a valid operation.").toStdString() );
-
+        
         return;
     }
-
-
+    
+    
     setNameInternal(newName, true);
 }
+
+
 
 NATRON_NAMESPACE_EXIT

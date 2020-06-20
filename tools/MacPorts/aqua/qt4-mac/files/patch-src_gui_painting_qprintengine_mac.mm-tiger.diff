@@ -1,5 +1,5 @@
---- src/gui/painting/qprintengine_mac.mm.orig	2017-08-31 21:35:19.000000000 +0200
-+++ src/gui/painting/qprintengine_mac.mm	2017-08-31 21:37:56.000000000 +0200
+--- src/gui/painting/qprintengine_mac.mm.orig
++++ src/gui/painting/qprintengine_mac.mm
 @@ -187,7 +187,11 @@
              paperMargins.top = topMargin;
              paperMargins.right = rightMargin;

@@ -6,7 +6,7 @@
 
 set -e # Exit immediately if a command exits with a non-zero status
 set -u # Treat unset variables as an error when substituting.
-set -x # Print commands and their arguments as they are executed.
+#set -x # Print commands and their arguments as they are executed.
 
 if [ -z "${PYVER:-}" ]; then
 	echo "PYVER must be set to Python version"
@@ -156,6 +156,7 @@ catDll libjasper-
 catDll libjpeg-
 catDll liblcms2-
 catDll liblzma-
+catDll libmfx
 catDll libmng-
 catDll libmodplug-
 catDll libmp3lame-
@@ -183,6 +184,7 @@ catDll librtmp-
 catDll libshiboken-python${PYVER}
 catDll libspeex-
 catDll libsqlite3-
+catDll libsrt
 catDll libssh2-
 catDll libstdc++-
 catDll libtasn1-
@@ -200,9 +202,20 @@ catDll libwebpmux-
 catDll libwinpthread-
 catDll libxml2-
 catDll phonon4
-catDll SDL2
+#catDll SDL2
 catDll SSLEAY32
 catDll zlib1
+
+catDll libSeExpr
+catDll yaml-cpp
+catDll libopenh264
+catDll libthai
+catDll libdatrie-
+catDll libsnappy
+catDll libpugixml
+catDll libheif-
+catDll libde265-
+catDll libx265
 
 if [ "$BITS" = "32" ]; then
     catDll libgcc_s_dw2-
@@ -212,7 +225,7 @@ fi
 
 if [ "$NATRON_LICENSE" = "GPL" ]; then
     catDll libx264-
-    catDll libx265
+    #catDll libx265
     #catDll libx265_main
     catDll xvidcore
 fi
@@ -220,6 +233,7 @@ fi
 BIN_PATH="$SDK_HOME/osmesa/lib"
 catDll osmesa
 BIN_PATH="$LIBRAW_PATH"
+catDll libraw-
 catDll libraw_r-
 BIN_PATH="$FFMPEG_PATH"
 catDll avcodec-
@@ -240,11 +254,13 @@ BIN_PATH="$SDK_HOME_BIN"
 catDll libcdr-
 catDll libcroco-
 catDll libicuin
-catDll libpoppler-7
+catDll libpoppler-9
 catDll libpoppler-glib-
 catDll librevenge-0
 catDll librevenge-stream-
 catDll libzip
+catDll libmad-0
+catDll libsox-
 
 INIT_VAR=1
 DLL_VAR_PREFIX="GMIC"
@@ -254,3 +270,10 @@ catDll libcurl-
 catDll libnghttp2-
 catDll libbrotlidec
 catDll libbrotlicommon
+
+# Local variables:
+# mode: shell-script
+# sh-basic-offset: 4
+# sh-indent-comment: t
+# indent-tabs-mode: nil
+# End:

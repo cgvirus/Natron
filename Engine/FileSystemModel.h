@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,18 +40,19 @@
 #include <QtCore/QAbstractItemModel>
 #include <QtCore/QDir>
 
-
-
 #include "Global/GlobalDefines.h"
+
 #include "Engine/EngineFwd.h"
 
 NATRON_NAMESPACE_ENTER
 
 class FileSystemModel;
 struct FileSystemItemPrivate;
+
 class FileSystemItem
     : public boost::enable_shared_from_this<FileSystemItem>
 {
+private:
     struct MakeSharedEnabler;
 
     // constructors should be privatized in any class that derives from boost::enable_shared_from_this<>
@@ -67,17 +69,18 @@ public:
 
     // Note: when switching to C++11, we can add variadic templates:
     //template<typename ... T>
-    //static FileSystemItemPtr create( T&& ... all ) {
-    //    return boost::make_shared<FileSystemItem>( std::forward<T>(all)... );
+    //static FileSystemItemPtr create( T&& ... all ) WARN_UNUSED_RETURN
+    //{
+    //    return FileSystemItemPtr( new FileSystemItem( std::forward<T>(all)... ) );
     //}
     static FileSystemItemPtr create( const FileSystemModelPtr& model,
-                                                     bool isDir,
-                                                     const QString& filename,
-                                                     const QString& userFriendlySequenceName,
-                                                     const SequenceParsing::SequenceFromFilesPtr& sequence,
-                                                     const QDateTime& dateModified,
-                                                     quint64 size,
-                                                    const FileSystemItemPtr& parent = FileSystemItemPtr() );
+                                    bool isDir,
+                                    const QString& filename,
+                                    const QString& userFriendlySequenceName,
+                                    const SequenceParsing::SequenceFromFilesPtr& sequence,
+                                    const QDateTime& dateModified,
+                                    quint64 size,
+                                    const FileSystemItemPtr& parent = FileSystemItemPtr() ) WARN_UNUSED_RETURN;
 
     ~FileSystemItem();
 
@@ -237,12 +240,12 @@ public:
 
     void initialize(SortableViewI* view);
 
-    ///////////////////////////////////////Overriden from QAbstractItemModel///////////////////////////////////////
+    ////////////////////////////////////// Overridden from QAbstractItemModel ///////////////////////////////
 
     virtual ~FileSystemModel();
 
     static bool isDriveName(const QString& name);
-    static bool startsWithDriveName(const QString& name);
+    static bool startsWithDriveName(const QString& name, bool checkAllPlatforms = false);
     virtual QVariant headerData(int section, Qt::Orientation orientation, int role) const OVERRIDE FINAL WARN_UNUSED_RETURN;
     virtual Qt::ItemFlags flags(const QModelIndex &index) const OVERRIDE FINAL WARN_UNUSED_RETURN;
     virtual int columnCount(const QModelIndex & parent) const OVERRIDE FINAL WARN_UNUSED_RETURN;

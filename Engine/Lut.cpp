@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -133,6 +134,18 @@ LutManager LutManager::m_instance = LutManager();
 LutManager::LutManager()
     : luts()
 {
+    // Create lut objects without initializing them
+    sRGBLut();
+    Rec709Lut();
+    CineonLut();
+    Gamma1_8Lut();
+    Gamma2_2Lut();
+    PanalogLut();
+    ViperLogLut();
+    REDLogLut();
+    AlexaV3LogCLut();
+    SLog1Lut();
+    SLog2Lut();
 }
 
 const Lut*
@@ -140,6 +153,7 @@ LutManager::getLut(const std::string & name,
                    fromColorSpaceFunctionV1 fromFunc,
                    toColorSpaceFunctionV1 toFunc)
 {
+    QMutexLocker k(&LutManager::m_instance.lutsMutex);
     LutsMap::iterator found = LutManager::m_instance.luts.find(name);
 
     if ( found != LutManager::m_instance.luts.end() ) {
@@ -153,6 +167,17 @@ LutManager::getLut(const std::string & name,
     }
 
     return NULL;
+}
+
+const Lut*
+LutManager::findLut(const std::string& name)
+{
+    LutsMap::const_iterator found = LutManager::m_instance.luts.find(name);
+    QMutexLocker k(&LutManager::m_instance.lutsMutex);
+    if ( found != LutManager::m_instance.luts.end() ) {
+        return found->second;
+    }
+    return 0;
 }
 
 LutManager::~LutManager()
@@ -361,7 +386,7 @@ Lut::to_byte_planar(unsigned char* to,
     unsigned char *p;
     unsigned error;
     if (!alpha) {
-        /* go fowards from starting point to end of line: */
+        /* go forwards from starting point to end of line: */
         error = 0x80;
         for (p = to + start * outDelta, q = from + start * inDelta; p < end; p += outDelta, q += inDelta) {
             error = (error & 0xff) + toFunc_hipart_to_uint8xx[hipart(*q)];
@@ -376,7 +401,7 @@ Lut::to_byte_planar(unsigned char* to,
         }
     } else {
         const float *a = alpha;
-        /* go fowards from starting point to end of line: */
+        /* go forwards from starting point to end of line: */
         error = 0x80;
         for (p = to + start * outDelta, q = from + start * inDelta, a += start * inDelta; p < end; p += outDelta, q += inDelta, a += inDelta) {
             const float v = *q * *a;
@@ -478,7 +503,7 @@ Lut::to_byte_packed(unsigned char* to,
         int dstY = dstBounds.y2 - y - 1;
         const float *src_pixels = from + (srcY * (srcBounds.x2 - srcBounds.x1) * inPackingSize);
         unsigned char *dst_pixels = to + (dstY * (dstBounds.x2 - dstBounds.x1) * outPackingSize);
-        /* go fowards from starting point to end of line: */
+        /* go forwards from starting point to end of line: */
         for (int x = start; x < rect.x2; ++x) {
             int inCol = x * inPackingSize;
             int outCol = x * outPackingSize;
@@ -573,7 +598,7 @@ Lut::to_float_packed(float* to,
         int dstY = dstBounds.y2 - y - 1;
         const float *src_pixels = from + (srcY * (srcBounds.x2 - srcBounds.x1) * inPackingSize);
         float *dst_pixels = to + (dstY * (dstBounds.x2 - dstBounds.x1) * outPackingSize);
-        /* go fowards from starting point to end of line: */
+        /* go forwards from starting point to end of line: */
         for (int x = rect.x1; x < rect.x2; ++x) {
             int inCol = x * inPackingSize;
             int outCol = x * outPackingSize;
@@ -994,7 +1019,7 @@ to_byte_planar(unsigned char *to,
         int start = rand() % W;
         const float *q;
         unsigned char *p;
-        /* go fowards from starting point to end of line: */
+        /* go forwards from starting point to end of line: */
         float error = .5;
         for (p = to + start * outDelta, q = from + start * inDelta; p < end; p += outDelta, q += inDelta) {
             float G = error + *q * 255.0f;
@@ -1030,7 +1055,7 @@ to_byte_planar(unsigned char *to,
         const float *q;
         const float *a = alpha;
         unsigned char *p;
-        /* go fowards from starting point to end of line: */
+        /* go forwards from starting point to end of line: */
         float error = .5;
         for (p = to + start * outDelta, q = from + start * inDelta, a += start * inDelta; p < end;
              p += outDelta, q += inDelta, a += inDelta) {
@@ -1160,7 +1185,7 @@ to_byte_packed(unsigned char* to,
 
         const float *src_pixels = from + (srcY * (srcBounds.x2 - srcBounds.x1) * inPackingSize);
         unsigned char *dst_pixels = to + (y * (dstBounds.x2 - dstBounds.x1) * outPackingSize);
-        /* go fowards from starting point to end of line: */
+        /* go forwards from starting point to end of line: */
         for (int x = start; x < rect.x2; ++x) {
             int inCol = x * inPackingSize;
             int outCol = x * outPackingSize;

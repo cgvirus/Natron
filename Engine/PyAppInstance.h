@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,11 +28,6 @@
 
 #include "Global/Macros.h"
 
-/**
- * @brief Simple wrap for the AppInstance class that is the API we want to expose to the Python
- * Engine module.
- **/
-
 #include <map>
 
 CLANG_DIAG_OFF(deprecated)
@@ -41,11 +37,22 @@ CLANG_DIAG_OFF(uninitialized)
 CLANG_DIAG_ON(deprecated)
 CLANG_DIAG_ON(uninitialized)
 
+
 #include "Engine/PyNode.h"
+
 #include "Engine/EngineFwd.h"
 
 NATRON_NAMESPACE_ENTER;
 NATRON_PYTHON_NAMESPACE_ENTER;
+
+/**
+ * @brief Simple wrap for the AppInstance class that is the API we want to expose to the Python
+ * Engine module.
+ **/
+
+// Used as a temp variable to retrieve existing objects without creating new object.
+#define kPythonTmpCheckerVariable "_tmp_checker_"
+
 
 class AppSettings
 {
@@ -297,10 +304,17 @@ public:
 
     int timelineGetRightBound() const;
 
+    void timelineGoTo(int frame);
+    
     void addFormat(const QString& formatSpec);
 
     void render(Effect* writeNode, int firstFrame, int lastFrame, int frameStep = 1);
+
     void render(const std::list<Effect*>& effects, const std::list<int>& firstFrames, const std::list<int>& lastFrames, const std::list<int>& frameSteps);
+
+    void redrawViewer(Effect* viewerNode);
+
+    void refreshViewer(Effect* viewerNode,bool useCache = true);
 
     Param* getProjectParam(const QString& name) const;
 
@@ -321,7 +335,15 @@ public:
     App* newProject();
     std::list<QString> getViewNames() const;
 
+    int getViewIndex(const QString& viewName) const;
+
+    QString getViewName(int viewIndex) const;
+
     void addProjectLayer(const ImageLayer& layer);
+
+    static Effect* createEffectFromNodeWrapper(const NodePtr& node);
+
+    static App* createAppFromAppInstance(const AppInstancePtr& app);
 
 protected:
 

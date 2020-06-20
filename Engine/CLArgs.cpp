@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,6 +37,7 @@
 
 #include "Global/GlobalDefines.h"
 #include "Global/GitVersion.h"
+#include "Global/ProcInfo.h"
 #include "Global/QtCompat.h"
 #include "Global/StrUtils.h"
 
@@ -60,6 +62,7 @@ public:
     bool isBackground;
     bool useDefaultSettings;
     bool clearCacheOnLaunch;
+    bool clearPluginCacheOnLaunch;
     QString ipcPipe;
     int error;
     bool isInterpreterMode;
@@ -87,6 +90,7 @@ public:
         , isBackground(false)
         , useDefaultSettings(false)
         , clearCacheOnLaunch(false)
+        , clearPluginCacheOnLaunch(false)
         , ipcPipe()
         , error(0)
         , isInterpreterMode(false)
@@ -130,7 +134,7 @@ CLArgs::CLArgs(int& argc,
     AppManager::setApplicationLocale();
 
     std::vector<std::string> utf8Args;
-    ensureCommandLineArgsUtf8(argc, argv, &utf8Args);
+    ProcInfo::ensureCommandLineArgsUtf8(argc, argv, &utf8Args);
 
     for (std::size_t i = 0; i < utf8Args.size(); ++i) {
         QString str = QString::fromUtf8(utf8Args[i].c_str());
@@ -244,7 +248,8 @@ void
 CLArgs::printBackGroundWelcomeMessage()
 {
     QString msg = tr("%1 Version %2\n"
-                     "Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat\n"
+                     "(C) 2018-2020 The Natron developers\n"
+                     "(C) 2013-2018 INRIA and Alexandre Gauthier-Foichat\n"
                      ">>>Use the --help or -h option to print usage.<<<").arg( QString::fromUtf8(NATRON_APPLICATION_NAME) ).arg( QString::fromUtf8(NATRON_VERSION_STRING) );
     std::cout << msg.toStdString() << std::endl;
 }
@@ -264,7 +269,7 @@ CLArgs::printUsage(const std::string& programName)
         "  -h [ --help ]\n"
         "    Produce help message.\n"
         "  -v [ --version ]\n"
-        "    Print informations about %1 version.\n"
+        "    Print information about %1 version.\n"
         "  -b [ --background ]\n"
         "    Enable background rendering mode. No graphical interface is shown.\n"
         "    When using %1Renderer or the -t option, this argument is implicit\n"
@@ -277,11 +282,13 @@ CLArgs::printUsage(const std::string& programName)
         "    An optional Python script filename can be specified to source a script\n"
         "    before the interpreter is made accessible.\n"
         "    Note that %1 will not start rendering any Write node of the sourced\n"
-        "    script: it must be started explicitely.\n"
+        "    script: it must be started explicitly.\n"
         "    %1Renderer and %1 do the same thing in this mode, only the\n"
         "    init.py script is loaded.\n"
         "  --clear-cache\n"
         "    Clears the cache on startup.\n"
+        "  --clear-plugins-cache\n"
+        "    Clears the plug-ins load cache on startup, forcing them to reload entirely.\n"
         "  --no-settings\n"
         "    When passed on the command-line, the %1 settings will not be restored\n"
         "    from the preferences file on disk so that %1 uses the default ones.\n"
@@ -335,7 +342,7 @@ CLArgs::printUsage(const std::string& programName)
         "     Enable render statistics that will be produced for\n"
         "     each frame in form of a file located next to the image produced by\n"
         "     the Writer node, with the same name and a -stats.txt extension. The\n"
-        "     breakdown contains informations about each nodes, render times etc...\n"
+        "     breakdown contains information about each nodes, render times etc...\n"
         "     This option is useful for debugging purposes or to control that a render\n"
         "     is working correctly.\n"
         "     **Please note** that it does not work when writing video files."
@@ -351,15 +358,9 @@ CLArgs::printUsage(const std::string& programName)
         "Options for the execution of Python scripts:\n"
         "  %3 <Python script path> [options]\n"
         "  [Note that the following does not apply if the -t option was given.]\n"
-        "  The script argument can either be the script of a Group that was exported\n"
-        "  from the graphical user interface, or an exported project, or a script\n"
-        "  written by hand.\n"
-        "  When executing a script, %1 first looks for a function with the\n"
-        "  following signature:\n"
-        "    def createInstance(app,group):\n"
-        "  If this function is found, it is executed, otherwise the whole content of\n"
-        "  the script is interpreted as though it were given to Python natively.\n"
-        "  In either case, the \"app\" variable is always defined and points to the\n"
+        "  The whole content of the script is interpreted as though it were given to\n"
+        "  Python natively.\n"
+        "  The \"app\" variable is always defined and points to the\n"
         "  correct application instance.\n"
         "  Note that the GUI version of the program (%1) sources the script before\n"
         "  creating the graphical user interface and does not start rendering.\n"
@@ -453,6 +454,11 @@ CLArgs::isCacheClearRequestedOnLaunch() const
     return _imp->clearCacheOnLaunch;
 }
 
+bool
+CLArgs::isPluginLoadCacheClearRequestedOnLaunch() const
+{
+    return _imp->clearPluginCacheOnLaunch;
+}
 
 bool
 CLArgs::isBackgroundMode() const
@@ -616,7 +622,7 @@ CLArgsPrivate::hasOutputToken(QString& indexStr)
                 indexStr.toInt(&ok);
                 if (!ok) {
                     error = 1;
-                    std::cout << tr("Wrong formating for the -o option").toStdString() << std::endl;
+                    std::cout << tr("Wrong formatting for the -o option").toStdString() << std::endl;
 
                     return args.end();
                 }
@@ -639,7 +645,7 @@ CLArgsPrivate::hasOutputToken(QString& indexStr)
                     indexStr.toInt(&ok);
                     if (!ok) {
                         error = 1;
-                        std::cout << tr("Wrong formating for the -o option").toStdString() << std::endl;
+                        std::cout << tr("Wrong formatting for the -o option").toStdString() << std::endl;
 
                         return args.end();
                     }
@@ -764,6 +770,16 @@ CLArgsPrivate::parse()
     }
 
     {
+        QStringList::iterator it = hasToken( QString::fromUtf8("clear-plugins-cache"), QString() );
+        if ( it != args.end() ) {
+            clearPluginCacheOnLaunch = true;
+            args.erase(it);
+        }
+    }
+
+
+
+    {
         QStringList::iterator it = hasToken( QString::fromUtf8("no-settings"), QString() );
         if ( it != args.end() ) {
             useDefaultSettings = true;
@@ -806,7 +822,7 @@ CLArgsPrivate::parse()
                 breakpadProcessPID = it->toLongLong();
                 args.erase(it);
             } else {
-                std::cout << tr("You must specify the breakpad process executable file path").toStdString() << std::endl;
+                std::cout << tr("You must specify the breakpad process PID").toStdString() << std::endl;
                 error = 1;
 
                 return;
@@ -1227,40 +1243,5 @@ CLArgsPrivate::parse()
     }
 } // CLArgsPrivate::parse
 
-void
-CLArgs::ensureCommandLineArgsUtf8(int argc, char **argv, std::vector<std::string>* utf8Args)
-{
-    assert(utf8Args);
-#ifndef __NATRON_WIN32__
-    // On Unix, command line args are Utf8
-    assert(!argc || argv);
-    for (int i = 0; i < argc; ++i) {
-        std::string str(argv[i]);
-        assert(StrUtils::is_utf8(str.c_str()));
-        utf8Args->push_back(str);
-    }
-#else
-    // On Windows, it must be converted: http://stackoverflow.com/questions/5408730/what-is-the-encoding-of-argv
-    (void)argc;
-    (void)argv;
-
-    int nArgsOut;
-    wchar_t** argList = CommandLineToArgvW(GetCommandLineW(), &nArgsOut);
-    for (int i = 0; i < nArgsOut; ++i) {
-        std::wstring wide(argList[i]);
-        std::string utf8Str = StrUtils::utf16_to_utf8(wide);
-        assert(StrUtils::is_utf8(utf8Str.c_str()));
-        utf8Args->push_back(utf8Str);
-        if (argv) {
-            std::cout << "Non UTF-8 arg: " <<  argv[i] << std::endl;
-        }
-        std::cout << "UTF-8 arg: " <<  utf8Args->back() << std::endl;
-    }
-    // Free memory allocated for CommandLineToArgvW arguments.
-    LocalFree(argList);
-
-
-#endif
-}
 
 NATRON_NAMESPACE_EXIT

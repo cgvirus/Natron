@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,7 +27,9 @@
 
 #include <QtCore/QFile>
 #include <QtCore/QFileInfo>
+GCC_ONLY_DIAG_OFF(class-memaccess)
 #include <QtCore/QVector>
+GCC_ONLY_DIAG_ON(class-memaccess)
 
 #include <iostream>
 #include <exception>
@@ -40,11 +43,13 @@
 #include "Engine/AppInstance.h"
 #include "Engine/CreateNodeArgs.h"
 #include "Engine/Node.h"
-#include "Engine/NodeSerialization.h"
 #include "Engine/Project.h"
 #include "Engine/ReadNode.h"
 #include "Engine/Settings.h"
 #include "Engine/WriteNode.h"
+
+#include "Serialization/NodeSerialization.h"
+
 
 
 NATRON_NAMESPACE_ENTER
@@ -112,7 +117,7 @@ DocumentationManager::handler(QHttpRequest *req,
 {
     Q_UNUSED(req)
 
-    QString docDir = appPTR->getApplicationBinaryPath() + QString::fromUtf8("/../Resources/docs/html/");
+    QString docDir = QString::fromUtf8(appPTR->getApplicationBinaryDirPath().c_str()) + QString::fromUtf8("/../Resources/docs/html/");
     QString page = req->url().toString();
     QByteArray body;
 
@@ -180,8 +185,8 @@ DocumentationManager::handler(QHttpRequest *req,
      */
     {
         const std::string id = pluginID.toStdString();
-        if (ReadNode::isBundledReader(id, false) ||
-            WriteNode::isBundledWriter(id, false) ||
+        if (ReadNode::isBundledReader(id) ||
+            WriteNode::isBundledWriter(id) ||
             pluginID.startsWith( QString::fromUtf8("fr.inria.openfx.OCIO") ) ||
             //pluginID.startsWith( QString::fromUtf8("fr.inria.openfx.Read") ) ||
             //pluginID.startsWith( QString::fromUtf8("fr.inria.openfx.Write") ) ||
@@ -255,7 +260,7 @@ DocumentationManager::handler(QHttpRequest *req,
                 if (split.length() > 0) {
                     QString pluginID = split.takeLast();
                     if ( !pluginID.isEmpty() ) {
-                        Plugin* plugin = 0;
+                        PluginPtr plugin;
                         try {
                             plugin = appPTR->getPluginBinary(pluginID, -1, -1, false);
                         } catch (const std::exception& e) {
@@ -263,33 +268,35 @@ DocumentationManager::handler(QHttpRequest *req,
                         }
 
                         if (plugin) {
-        
-                            CreateNodeArgs args( pluginID.toStdString(), appPTR->getTopLevelInstance()->getProject() );
-                            args.setProperty<bool>(kCreateNodeArgsPropOutOfProject, true);
-                            args.setProperty<bool>(kCreateNodeArgsPropNoNodeGUI, true);
+                            CreateNodeArgsPtr args(CreateNodeArgs::create( pluginID.toStdString(), appPTR->getTopLevelInstance()->getProject() ));
+                            args->setProperty<bool>(kCreateNodeArgsPropVolatile, true);
+                            args->setProperty<bool>(kCreateNodeArgsPropNoNodeGUI, true);
 
                             NodePtr node = appPTR->getTopLevelInstance()->createNode(args);
-                            // IMPORTANT: this code is *very* similar to AppInstance::exportDocs
-                            if ( node &&
-                                 pluginID != QString::fromUtf8(PLUGINID_NATRON_READ) &&
-                                 pluginID != QString::fromUtf8(PLUGINID_NATRON_WRITE) ) {
-                                EffectInstancePtr effectInstance = node->getEffectInstance();
-                                if ( effectInstance && effectInstance->isReader() ) {
-                                    ReadNode* isReadNode = dynamic_cast<ReadNode*>( effectInstance.get() );
+                            if (node) {
+                                // IMPORTANT: this code is *very* similar to AppInstance::exportDocs
+                                if ( pluginID != QString::fromUtf8(PLUGINID_NATRON_READ) && pluginID != QString::fromUtf8(PLUGINID_NATRON_WRITE) ) {
+                                    EffectInstancePtr effectInstance = node->getEffectInstance();
 
-                                    if (isReadNode) {
-                                        NodePtr subnode = isReadNode->getEmbeddedReader();
-                                        if (subnode) {
-                                            node = subnode;
+                                    if ( effectInstance->isReader() ) {
+                                        ReadNode* isReadNode = dynamic_cast<ReadNode*>( effectInstance.get() );
+
+                                        if (isReadNode) {
+                                            NodePtr subnode = isReadNode->getEmbeddedReader();
+                                            if (subnode) {
+                                                node = subnode;
+                                            }
                                         }
                                     }
-                                } else if ( effectInstance && effectInstance->isWriter() ) {
-                                    WriteNode* isWriteNode = dynamic_cast<WriteNode*>( effectInstance.get() );
 
-                                    if (isWriteNode) {
-                                        NodePtr subnode = isWriteNode->getEmbeddedWriter();
-                                        if (subnode) {
-                                            node = subnode;
+                                    if ( effectInstance->isWriter() ) {
+                                        WriteNode* isWriteNode = dynamic_cast<WriteNode*>( effectInstance.get() );
+                                        
+                                        if (isWriteNode) {
+                                            NodePtr subnode = isWriteNode->getEmbeddedWriter();
+                                            if (subnode) {
+                                                node = subnode;
+                                            }
                                         }
                                     }
                                 }
@@ -333,6 +340,8 @@ DocumentationManager::handler(QHttpRequest *req,
         html = parser(html, docDir);
         body = html.toUtf8();
     } else if ( page == QString::fromUtf8("_group.html") ) {
+#pragma message WARN("TODO: produce HTML from file templates")
+        // TODO: we should really read and parse _group.html or _groupChannel.html and just replace the relevant sections
         QString html;
         QString group;
         QString groupHeader = QString::fromUtf8("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">"
@@ -373,20 +382,21 @@ DocumentationManager::handler(QHttpRequest *req,
         if ( !group.isEmpty() ) {
             // IMPORTANT: this code is *very* similar to AppInstance::exportDocs
 
-            QMap<QString, QString> pluginsOrderedByLabel; // use a map so that it gets sorted by label
+            QMap<std::string, QString> pluginsOrderedByLabel; // use a map so that it gets sorted by label
             std::list<std::string> pluginIDs = appPTR->getPluginIDs();
             for (std::list<std::string>::iterator it = pluginIDs.begin(); it != pluginIDs.end(); ++it) {
-                Plugin* plugin = 0;
+                PluginPtr plugin;
                 QString pluginID = QString::fromUtf8( it->c_str() );
                 try {
                     plugin = appPTR->getPluginBinary(pluginID, -1, -1, false);
                 } catch (const std::exception& e) {
                     std::cerr << e.what() << std::endl;
                 }
-                if ( plugin && !plugin->getIsDeprecated() && ( !plugin->getIsForInternalUseOnly() || plugin->isReader() || plugin->isWriter() ) ) {
-                    QStringList groupList = plugin->getGrouping();
-                    if (groupList.at(0) == group) {
-                        pluginsOrderedByLabel[Plugin::makeLabelWithoutSuffix( plugin->getPluginLabel() )] = pluginID;
+
+                if (plugin) {
+                    std::vector<std::string> groupList = plugin->getPropertyNUnsafe<std::string>(kNatronPluginPropGrouping);
+                    if (groupList.at(0) == group.toStdString()) {
+                        pluginsOrderedByLabel[Plugin::makeLabelWithoutSuffix( plugin->getPropertyUnsafe<std::string>(kNatronPluginPropLabel) )] = pluginID;
                     }
                 }
             }
@@ -410,15 +420,16 @@ DocumentationManager::handler(QHttpRequest *req,
                 html.append(navFooter);
                 html.append(groupBodyStart);
 
-                for (QMap<QString, QString>::const_iterator i = pluginsOrderedByLabel.constBegin();
+                for (QMap<std::string, QString>::const_iterator i = pluginsOrderedByLabel.constBegin();
                      i != pluginsOrderedByLabel.constEnd();
                      ++i) {
                     const QString& plugID = i.value();
-                    const QString& plugName = i.key();
-                    if ( !plugID.isEmpty() && !plugName.isEmpty() ) {
+                    const std::string& plugName = i.key();
+                    if ( !plugID.isEmpty() && !plugName.empty() ) {
+
                         html.append( QString::fromUtf8("<li class=\"toctree-l1\"><a href='/_plugin.html?id=%1'>%2</a></li>")
                                      .arg(plugID)
-                                     .arg(plugName) );
+                                     .arg( QString::fromUtf8( plugName.c_str() ) ) );
                     }
                 }
                 html.append(groupBodyEnd);
@@ -433,7 +444,7 @@ DocumentationManager::handler(QHttpRequest *req,
                                                        "<div class=\"toctree-wrapper compound\">"
                                                        "<ul>")
                                      .arg( tr("Reference Guide") )
-            .arg ( tr("The first section in this manual describes the various options available from the %1 preference settings. It is followed by one section for each node group in %1.")
+            .arg ( tr("The first section in this manual describes the various options available from the %1 preference settings. The next section gives the documentation for the various environment variables that may be used to control %1's behavior. It is followed by one section for each node group in %1.")
                   .arg( QString::fromUtf8(NATRON_APPLICATION_NAME) ) + QLatin1Char(' ') + tr("Node groups are available by clicking on buttons in the left toolbar, or by right-clicking the mouse in the Node Graph area.") + QLatin1Char(' ') + tr("Please note that documentation is also generated automatically for third-party OpenFX plugins.") );
             html.append(groupHeader);
             html.replace( QString::fromUtf8("__REPLACE_TITLE__"), tr("Reference Guide") );
@@ -460,7 +471,7 @@ DocumentationManager::handler(QHttpRequest *req,
 
             std::list<std::string> pluginIDs = appPTR->getPluginIDs();
             for (std::list<std::string>::iterator it = pluginIDs.begin(); it != pluginIDs.end(); ++it) {
-                Plugin* plugin = 0;
+                PluginPtr plugin;
                 QString pluginID = QString::fromUtf8( it->c_str() );
                 try {
                     plugin = appPTR->getPluginBinary(pluginID, -1, -1, false);
@@ -469,8 +480,8 @@ DocumentationManager::handler(QHttpRequest *req,
                 }
 
                 if (plugin) {
-                    QStringList groupList = plugin->getGrouping();
-                    groups << groupList.at(0);
+                    std::vector<std::string> groupList = plugin->getPropertyNUnsafe<std::string>(kNatronPluginPropGrouping);
+                    groups.push_back(QString::fromUtf8(groupList[0].c_str()));
                 }
             }
             groups.removeDuplicates();
@@ -494,7 +505,12 @@ DocumentationManager::handler(QHttpRequest *req,
                              page.endsWith( QString::fromUtf8(".js") ) ||
                              page.endsWith( QString::fromUtf8(".txt") ) ||
                              page.endsWith( QString::fromUtf8(".png") ) ||
-                             page.endsWith( QString::fromUtf8(".jpg") ) ) ) {
+                             page.endsWith( QString::fromUtf8(".jpg") ) ||
+                             page.endsWith( QString::fromUtf8(".ttf") ) ||
+                             page.endsWith( QString::fromUtf8(".eot") ) ||
+                             page.endsWith( QString::fromUtf8(".svg") ) ||
+                             page.endsWith( QString::fromUtf8(".woff") ) ||
+                             page.endsWith( QString::fromUtf8(".woff2") ) ) ) {
         // get static file
         QFileInfo staticFileInfo;
 

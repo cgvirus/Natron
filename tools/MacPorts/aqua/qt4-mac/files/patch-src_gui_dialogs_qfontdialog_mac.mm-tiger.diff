@@ -1,5 +1,5 @@
---- src/gui/dialogs/qfontdialog_mac.mm.orig	2017-08-31 21:41:56.000000000 +0200
-+++ src/gui/dialogs/qfontdialog_mac.mm	2017-08-31 21:55:51.000000000 +0200
+--- src/gui/dialogs/qfontdialog_mac.mm.orig
++++ src/gui/dialogs/qfontdialog_mac.mm
 @@ -141,6 +141,7 @@
      QFont newFont;
      if (cocoaFont) {

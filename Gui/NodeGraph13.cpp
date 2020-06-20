@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -96,16 +97,20 @@ NodeGraph::deselect()
 {
     {
         QMutexLocker l(&_imp->_nodesMutex);
-        for (NodesGuiList::iterator it = _imp->_selection.begin(); it != _imp->_selection.end(); ++it) {
-            (*it)->setUserSelected(false);
+        for (NodesGuiWList::iterator it = _imp->_selection.begin(); it != _imp->_selection.end(); ++it) {
+            NodeGuiPtr n = it->lock();
+            if (n) {
+                n->setUserSelected(false);
+            }
         }
     }
 
     _imp->_selection.clear();
 
-    if (_imp->_magnifiedNode && _imp->_magnifOn) {
+    NodeGuiPtr magNode = _imp->_magnifiedNode.lock();
+    if (magNode && _imp->_magnifOn) {
         _imp->_magnifOn = false;
-        _imp->_magnifiedNode->setScale_natron(_imp->_nodeSelectedScaleBeforeMagnif);
+        magNode->setScale_natron(_imp->_nodeSelectedScaleBeforeMagnif);
     }
 }
 

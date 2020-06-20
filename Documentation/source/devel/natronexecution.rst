@@ -24,6 +24,12 @@ An optional Python script filename can be specified to source a script before th
 Note that Natron will not start rendering any Write node of the sourced script, you must explicitly start it.
 *NatronRenderer* and *Natron* will do the same thing in this mode, only the *init.py* script will be loaded.
 
+**[--clear-cache]** will clear the image cache on startup
+
+**[--clear-plugins-cache]** will clear the plug-ins load cache on start-up, forcing them
+to reaload
+
+
 
 Options for the execution of Natron projects:
 ---------------------------------------------
@@ -81,7 +87,7 @@ The same rules apply to this script as the rules below on the execution of Pytho
 
 **``--render-stats``** or **``-s``** Enables render statistics that will be produced for each frame in form of a file located
 next to the image produced by the Writer node, with the same name and a ``-stats.txt`` extension.
-The breakdown contains informations about each nodes, render times, etc.
+The breakdown contains information about each nodes, render times, etc.
 This option is useful for debugging purposes or to control that a render is working correctly.
 **Please note** that it does not work when writing video files.
 

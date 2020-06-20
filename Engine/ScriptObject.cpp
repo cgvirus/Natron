@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -57,9 +58,12 @@ ScriptObject::~ScriptObject()
 void
 ScriptObject::setLabel(const std::string& label)
 {
-    QMutexLocker k(&_imp->nameMutex);
+    {
+        QMutexLocker k(&_imp->nameMutex);
 
-    _imp->label = label;
+        _imp->label = label;
+    }
+    onLabelChanged();
 }
 
 std::string
@@ -71,11 +75,22 @@ ScriptObject::getLabel() const
 }
 
 void
+ScriptObject::setScriptNameInternal(const std::string& name, bool callOnScriptNameChanged)
+{
+    {
+        QMutexLocker k(&_imp->nameMutex);
+
+        _imp->name = name;
+    }
+    if (callOnScriptNameChanged) {
+        onScriptNameChanged();
+    }
+}
+
+void
 ScriptObject::setScriptName(const std::string& name)
 {
-    QMutexLocker k(&_imp->nameMutex);
-
-    _imp->name = name;
+    setScriptNameInternal(name, true);
 }
 
 std::string

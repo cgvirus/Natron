@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -45,12 +46,10 @@ NATRON_NAMESPACE_ENTER
 class DockablePanelTabWidget
     : public QTabWidget
 {
-    Gui* _gui;
 
 public:
 
-    DockablePanelTabWidget(Gui* gui,
-                           QWidget* parent = 0);
+    DockablePanelTabWidget(QWidget* parent = 0);
 
     virtual QSize sizeHint() const OVERRIDE FINAL;
     virtual QSize minimumSizeHint() const OVERRIDE FINAL;

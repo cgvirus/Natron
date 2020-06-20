@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,10 +39,12 @@
 
 #include "Engine/KnobTypes.h"
 #include "Engine/Project.h"
+#include "Engine/KnobUndoCommand.h"
 #include "Engine/Utils.h" // convertFromPlainText
 
 #include "Gui/Button.h"
-#include "Gui/KnobUndoCommand.h"
+#include "Gui/Gui.h"
+#include "Gui/KnobGui.h"
 #include "Gui/NewLayerDialog.h"
 #include "Gui/TableModelView.h"
 
@@ -50,12 +53,6 @@ NATRON_NAMESPACE_ENTER
 
 NATRON_NAMESPACE_ANONYMOUS_ENTER
 
-struct Row
-{
-    std::vector<TableItem*> items;
-};
-
-typedef std::vector<Row> Variables;
 
 NATRON_NAMESPACE_ANONYMOUS_EXIT
 
@@ -68,31 +65,28 @@ struct KnobGuiTablePrivate
 
     QWidget* mainContainer;
     TableView *table;
-    TableModel* model;
+    TableModelPtr model;
     Button *addPathButton;
     Button* removePathButton;
     Button* editPathButton;
     bool isInsertingItem;
-    Variables items;
     bool dragAndDropping;
 
     KnobGuiTablePrivate()
         : mainContainer(0)
         , table(0)
-        , model(0)
+        , model()
         , addPathButton(0)
         , removePathButton(0)
         , editPathButton(0)
         , isInsertingItem(false)
-        , items()
         , dragAndDropping(false)
     {
     }
 };
 
-KnobGuiTable::KnobGuiTable(KnobIPtr knob,
-                           KnobGuiContainerI *container)
-    : KnobGui(knob, container)
+KnobGuiTable::KnobGuiTable(const KnobGuiPtr& knob, ViewIdx view)
+    : KnobGuiWidgets(knob, view)
     , _imp( new KnobGuiTablePrivate() )
 {
 }
@@ -101,13 +95,6 @@ KnobGuiTable::~KnobGuiTable()
 {
 }
 
-void
-KnobGuiTable::removeSpecificGui()
-{
-    if (_imp->mainContainer) {
-        _imp->mainContainer->deleteLater();
-    }
-}
 
 int
 KnobGuiTable::rowCount() const
@@ -166,7 +153,7 @@ KnobTableItemDelegate::paint(QPainter * painter,
 
         return;
     }
-    TableItem* item = model->item(index);
+    TableItemPtr item = model->getItem(index);
     if (!item) {
         QStyledItemDelegate::paint(painter, option, index);
 
@@ -174,7 +161,7 @@ KnobTableItemDelegate::paint(QPainter * painter,
     }
     QPen pen;
 
-    if ( !item->flags().testFlag(Qt::ItemIsEnabled) ) {
+    if ( !item->getFlags(index.column()).testFlag(Qt::ItemIsEnabled) ) {
         pen.setColor(Qt::black);
     } else {
         pen.setColor( QColor(200, 200, 200) );
@@ -190,7 +177,7 @@ KnobTableItemDelegate::paint(QPainter * painter,
         painter->fillRect( geom, option.palette.highlight() );
     }
     QRect r;
-    QString str = item->data(Qt::DisplayRole).toString();
+    QString str = item->getData(index.column(), Qt::DisplayRole).toString();
     bool decorateWithBrackets =  knob->isCellBracketDecorated( index.row(), index.column() );
 
     if (decorateWithBrackets) {
@@ -204,7 +191,8 @@ KnobTableItemDelegate::paint(QPainter * painter,
 void
 KnobGuiTable::createWidget(QHBoxLayout* layout)
 {
-    KnobTablePtr knob = boost::dynamic_pointer_cast<KnobTable>( getKnob() );
+    KnobGuiPtr knobUI = getKnobGui();
+    boost::shared_ptr<KnobTable> knob = boost::dynamic_pointer_cast<KnobTable>( knobUI->getKnob() );
 
     assert(knob);
 
@@ -212,33 +200,33 @@ KnobGuiTable::createWidget(QHBoxLayout* layout)
     QVBoxLayout* mainLayout = new QVBoxLayout(_imp->mainContainer);
     mainLayout->setContentsMargins(0, 0, 0, 0);
 
-    _imp->table = new TableView(_imp->mainContainer);
+    _imp->table = new TableView(knobUI->getGui(), _imp->mainContainer);
     QObject::connect( _imp->table, SIGNAL(aboutToDrop()), this, SLOT(onItemAboutToDrop()) );
     QObject::connect( _imp->table, SIGNAL(itemDropped()), this, SLOT(onItemDropped()) );
-    QObject::connect( _imp->table, SIGNAL(itemDoubleClicked(TableItem*)), this, SLOT(onItemDoubleClicked(TableItem*)) );
+    QObject::connect( _imp->table, SIGNAL(itemDoubleClicked(TableItemPtr)), this, SLOT(onItemDoubleClicked(TableItemPtr)) );
 
     layout->parentWidget()->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 
     _imp->table->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    _imp->table->setAttribute(Qt::WA_MacShowFocusRect, 0);
 
 #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
     _imp->table->header()->setResizeMode(QHeaderView::ResizeToContents);
 #else
     _imp->table->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
 #endif
-    _imp->table->setDragDropMode(QAbstractItemView::InternalMove);
     _imp->table->header()->setStretchLastSection(true);
     _imp->table->setUniformRowHeights(true);
+    _imp->table->setRootIsDecorated(false);
+    _imp->table->setDragDropMode(QAbstractItemView::InternalMove);
+
     _imp->table->setItemDelegate( new KnobTableItemDelegate(knob, _imp->table) );
 
-    _imp->model = new TableModel(0, 0, _imp->table);
-    QObject::connect( _imp->model, SIGNAL(s_itemChanged(TableItem*)), this, SLOT(onItemDataChanged(TableItem*)) );
+    const int numCols = knob->getColumnsCount();
+    _imp->model = TableModel::create(numCols, TableModel::eTableModelTypeTable);
+    QObject::connect( _imp->model.get(), SIGNAL(itemDataChanged(TableItemPtr,int, int)), this, SLOT(onItemDataChanged(TableItemPtr,int, int)) );
 
 
     _imp->table->setTableModel(_imp->model);
-    const int numCols = knob->getColumnsCount();
-    _imp->table->setColumnCount(numCols);
     if (numCols == 1) {
         _imp->table->header()->hide();
     }
@@ -246,10 +234,10 @@ KnobGuiTable::createWidget(QHBoxLayout* layout)
     for (int i = 0; i < numCols; ++i) {
         headers.push_back( QString::fromUtf8( knob->getColumnLabel(i).c_str() ) );
     }
-    _imp->table->setHorizontalHeaderLabels(headers);
+    _imp->model->setHorizontalHeaderData(headers);
 
     ///set the copy/link actions in the right click menu
-    enableRightClickMenu(_imp->table, 0);
+    KnobGuiWidgets::enableRightClickMenu(knobUI, _imp->table, DimIdx(0), getView());
 
     QWidget* buttonsContainer = new QWidget(_imp->mainContainer);
     QHBoxLayout* buttonsLayout = new QHBoxLayout(buttonsContainer);
@@ -266,7 +254,7 @@ KnobGuiTable::createWidget(QHBoxLayout* layout)
 
     _imp->editPathButton = new Button( tr("Edit..."), buttonsContainer);
     QObject::connect( _imp->editPathButton, SIGNAL(clicked()), this, SLOT(onEditButtonClicked()) );
-    _imp->editPathButton->setToolTip( NATRON_NAMESPACE::convertFromPlainText(tr("Click to edit seleted value."), NATRON_NAMESPACE::WhiteSpaceNormal) );
+    _imp->editPathButton->setToolTip( NATRON_NAMESPACE::convertFromPlainText(tr("Click to edit selected value."), NATRON_NAMESPACE::WhiteSpaceNormal) );
 
 
     buttonsLayout->addWidget(_imp->addPathButton);
@@ -289,14 +277,20 @@ KnobGuiTablePrivate::encodeTable(const KnobTablePtr& knob) const
 {
     std::stringstream ss;
 
-    for (Variables::const_iterator it = items.begin(); it != items.end(); ++it) {
+    int nCols = model->columnCount();
+    int nRows = model->rowCount();
+    for (int i = 0; i < nRows; ++i) {
+        TableItemPtr item = model->getItem(i);
+        assert(item);
         // In order to use XML tags, the text inside the tags has to be escaped.
-        for (std::size_t c = 0; c < it->items.size(); ++c) {
+        for (int c = 0; c < nCols; ++c) {
             std::string label = knob->getColumnLabel(c);
             ss << "<" << label << ">";
-            ss << Project::escapeXML( it->items[c]->text().toStdString() );
+            ss << Project::escapeXML( item->getText(c).toStdString() );
             ss << "</" << label << ">";
         }
+
+
     }
 
     return ss.str();
@@ -309,7 +303,10 @@ KnobGuiTablePrivate::createItem(const KnobTablePtr& knob,
 {
     assert( values.size() == knob->getColumnsCount() );
     int col = 0;
-    Row r;
+    TableItemPtr tableItem = TableItem::create(model);
+
+    // Prevent the model from emitting the itemDataChanged signal, otherwise it will call updateGui again
+    model->blockSignals(true);
 
     for (QStringList::const_iterator it = values.begin(); it != values.end(); ++it, ++col) {
         Qt::ItemFlags flags;
@@ -323,35 +320,27 @@ KnobGuiTablePrivate::createItem(const KnobTablePtr& knob,
                 flags |= Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled | Qt::ItemIsUserCheckable;
             }
         }
-        TableItem* cell = new TableItem;
-        cell->setText(*it);
-        cell->setFlags(flags);
-        r.items.push_back(cell);
+
+        tableItem->setText(col, *it);
+        tableItem->setFlags(col, flags);
+    }
+    model->blockSignals(false);
+    model->addTopLevelItem(tableItem);
+    isInsertingItem = true;
+    for (int c= 0; c < values.size(); ++c) {
+        table->resizeColumnToContents(c);
     }
 
-    if ( row >= (int)items.size() ) {
-        items.push_back(r);
-    } else {
-        std::vector<Row>::iterator it = items.begin();
-        std::advance(it, row);
-        items.insert(it, r);
-    }
-    int modelRowCount = model->rowCount();
-    if (row >= modelRowCount) {
-        model->insertRow(row);
-    }
-    isInsertingItem = true;
-    for (std::size_t i = 0; i < r.items.size(); ++i) {
-        table->setItem(row, i, r.items[i]);
-        table->resizeColumnToContents(i);
-    }
     isInsertingItem = false;
+
+
 }
 
 void
 KnobGuiTable::onAddButtonClicked()
 {
-    KnobTablePtr knob = boost::dynamic_pointer_cast<KnobTable>( getKnob() );
+    KnobGuiPtr knobUI = getKnobGui();
+    boost::shared_ptr<KnobTable> knob = boost::dynamic_pointer_cast<KnobTable>( knobUI->getKnob() );
 
     assert(knob);
 
@@ -359,10 +348,14 @@ KnobGuiTable::onAddButtonClicked()
     std::string oldTable = knob->getValue();
     QStringList row;
 
+    int rowCount = _imp->model->rowCount();
     if (numCols == 1) {
         QStringList existingEntries;
-        for (Variables::iterator it = _imp->items.begin(); it != _imp->items.end(); ++it) {
-            existingEntries.push_back( it->items[0]->text() );
+        for (int i = 0; i < rowCount; ++i) {
+            TableItemPtr item = _imp->model->getItem(i);
+            if (item) {
+                existingEntries.push_back( item->getText(0) );
+            }
         }
 
         QString newItemName = QString::fromUtf8("Placeholder");
@@ -378,17 +371,16 @@ KnobGuiTable::onAddButtonClicked()
         }
     }
 
-    int rowCount = (int)_imp->items.size();
-
     _imp->createItem(knob, rowCount, row);
     std::string newTable = _imp->encodeTable(knob);
-    pushUndoCommand( new KnobUndoCommand<std::string>( shared_from_this(), oldTable, newTable) );
+    knobUI->pushUndoCommand( new KnobUndoCommand<std::string>( knob, oldTable, newTable, DimIdx(0), getView()) );
 }
 
 void
 KnobGuiTable::onEditButtonClicked()
 {
-    KnobTablePtr knob = boost::dynamic_pointer_cast<KnobTable>( getKnob() );
+    KnobGuiPtr knobUI = getKnobGui();
+    boost::shared_ptr<KnobTable> knob = boost::dynamic_pointer_cast<KnobTable>( knobUI->getKnob() );
 
     assert(knob);
     std::string oldTable = knob->getValue();
@@ -398,29 +390,35 @@ KnobGuiTable::onEditButtonClicked()
         return;
     }
 
-    if ( (selection[0].row() >= 0) && ( selection[0].row() < (int)_imp->items.size() ) ) {
-        Row& r = _imp->items[selection[0].row()];
-        QStringList row;
-        for (std::size_t i = 0; i < r.items.size(); ++i) {
-            row.push_back( r.items[i]->text() );
-        }
-        if ( !editUserEntry(row) ) {
-            return;
-        }
-
-        for (std::size_t i = 0; i < r.items.size(); ++i) {
-            r.items[i]->setText(row[i]);
-        }
-
-        std::string newTable = _imp->encodeTable(knob);
-        pushUndoCommand( new KnobUndoCommand<std::string>( shared_from_this(), oldTable, newTable) );
+    int rowCount = _imp->model->rowCount();
+    if (selection[0].row() < 0 || selection[0].row() >= rowCount) {
+        return;
     }
+
+    int nCol = _imp->model->columnCount();
+    TableItemPtr item = _imp->model->getItem(selection[0].row());
+    QStringList row;
+    for (int c = 0; c < nCol; ++c) {
+        row.push_back( item->getText(c) );
+    }
+    if ( !editUserEntry(row) ) {
+        return;
+    }
+
+    for (int c = 0; c < nCol; ++c) {
+        item->setText(c, row[c]);
+    }
+
+    std::string newTable = _imp->encodeTable(knob);
+    knobUI->pushUndoCommand( new KnobUndoCommand<std::string>( knob, oldTable, newTable, DimIdx(0), getView()) );
+
 }
 
 void
 KnobGuiTable::onRemoveButtonClicked()
 {
-    KnobTablePtr knob = boost::dynamic_pointer_cast<KnobTable>( getKnob() );
+    KnobGuiPtr knobUI = getKnobGui();
+    boost::shared_ptr<KnobTable> knob = boost::dynamic_pointer_cast<KnobTable>( knobUI->getKnob() );
 
     assert(knob);
     QModelIndexList selection = _imp->table->selectionModel()->selectedRows();
@@ -429,15 +427,15 @@ KnobGuiTable::onRemoveButtonClicked()
         return;
     }
 
-
+    int nCols = _imp->model->columnCount();
+    int nRows = _imp->model->rowCount();
     for (int i = 0; i < selection.size(); ++i) {
         QStringList removedRow;
-        if ( (selection[0].row() >= 0) && ( selection[0].row() < (int)_imp->items.size() ) ) {
-            Row& r = _imp->items[selection[0].row()];
-            for (std::size_t i = 0; i < r.items.size(); ++i) {
-                removedRow.push_back( r.items[i]->text() );
+        if ( (selection[0].row() >= 0) && ( selection[0].row() < nRows) ) {
+            TableItemPtr r = _imp->model->getItem(selection[0].row());
+            for (int c = 0; c < nCols; ++c) {
+                removedRow.push_back( r->getText(c) );
             }
-            _imp->items.erase( _imp->items.begin() + selection[0].row() );
         }
 
         entryRemoved(removedRow);
@@ -448,13 +446,14 @@ KnobGuiTable::onRemoveButtonClicked()
 
     std::string oldTable = knob->getValue();
     std::string newTable = _imp->encodeTable(knob);
-    pushUndoCommand( new KnobUndoCommand<std::string>( shared_from_this(), oldTable, newTable) );
+    knobUI->pushUndoCommand( new KnobUndoCommand<std::string>( knob, oldTable, newTable, DimIdx(0), getView()) );
 }
 
 void
-KnobGuiTable::updateGUI(int /*dimension*/)
+KnobGuiTable::updateGUI()
 {
-    KnobTablePtr knob = boost::dynamic_pointer_cast<KnobTable>( getKnob() );
+    KnobGuiPtr knobUI = getKnobGui();
+    boost::shared_ptr<KnobTable> knob = boost::dynamic_pointer_cast<KnobTable>( knobUI->getKnob() );
 
     assert(knob);
 
@@ -462,7 +461,6 @@ KnobGuiTable::updateGUI(int /*dimension*/)
     knob->getTable(&table);
 
     _imp->model->clear();
-    _imp->items.clear();
     int i = 0;
     for (std::list<std::vector<std::string> >::const_iterator it = table.begin(); it != table.end(); ++it, ++i) {
         QStringList row;
@@ -474,43 +472,25 @@ KnobGuiTable::updateGUI(int /*dimension*/)
 }
 
 void
-KnobGuiTable::_hide()
+KnobGuiTable::setWidgetsVisible(bool visible)
 {
     if (_imp->mainContainer) {
-        _imp->mainContainer->hide();
+        _imp->mainContainer->setVisible(visible);
     }
 }
 
 void
-KnobGuiTable::_show()
+KnobGuiTable::setEnabled(const std::vector<bool>& perDimEnabled)
 {
-    if (_imp->mainContainer) {
-        _imp->mainContainer->show();
-    }
-}
-
-void
-KnobGuiTable::setEnabled()
-{
-    bool enabled = getKnob()->isEnabled(0);
 
     if (_imp->table) {
-        _imp->table->setEnabled(enabled);
-        _imp->addPathButton->setEnabled(enabled);
-        _imp->removePathButton->setEnabled(enabled);
+        _imp->table->setEnabled(perDimEnabled[0]);
+        _imp->addPathButton->setEnabled(perDimEnabled[0]);
+        _imp->removePathButton->setEnabled(perDimEnabled[0]);
     }
 }
 
-void
-KnobGuiTable::setReadOnly(bool readOnly,
-                          int /*dimension*/)
-{
-    if (_imp->table) {
-        _imp->table->setEnabled(!readOnly);
-        _imp->addPathButton->setEnabled(!readOnly);
-        _imp->removePathButton->setEnabled(!readOnly);
-    }
-}
+
 
 void
 KnobGuiTable::onItemAboutToDrop()
@@ -521,108 +501,75 @@ KnobGuiTable::onItemAboutToDrop()
 void
 KnobGuiTable::onItemDropped()
 {
-    _imp->items.clear();
 
-    ///Rebuild the mapping
-    int rowCount = _imp->table->rowCount();
-    int colCount = _imp->table->columnCount();
-    for (int i = 0; i < rowCount; ++i) {
-        Row& r = _imp->items[i];
-        r.items.resize(colCount);
-        for (int j = 0; j < colCount; ++j) {
-            r.items[j] = _imp->table->item(i, j);
-        }
-    }
     _imp->dragAndDropping = false;
 
     //Now refresh the knob balue
-    onItemDataChanged(0);
+    onItemDataChanged(TableItemPtr(), 0, 0);
 }
 
 void
-KnobGuiTable::onItemDoubleClicked(TableItem* item)
+KnobGuiTable::onItemDoubleClicked(const TableItemPtr& item)
 {
-    int row = -1;
-    int col = -1;
 
-    for (std::size_t i = 0; i < _imp->items.size(); ++i) {
-        for (std::size_t j = 0; j < _imp->items[i].items.size(); ++j) {
-            if (_imp->items[i].items[j] == item) {
-                row = i;
-                col = j;
-                break;
-            }
-        }
-        if (row != -1) {
-            break;
-        }
+    QModelIndex idx = _imp->model->getItemIndex(item);
+    if (!idx.isValid()) {
+        return;
     }
-    assert(row >= 0 && col >= 0);
-    KnobTablePtr knob = boost::dynamic_pointer_cast<KnobTable>( getKnob() );
+    KnobGuiPtr knobUI = getKnobGui();
+    boost::shared_ptr<KnobTable> knob = boost::dynamic_pointer_cast<KnobTable>( knobUI->getKnob() );
     assert(knob);
-    if ( !knob || (row < 0) || (col < 0) ) {
+    if (!knob) {
         return;
     }
 
-    Row& r = _imp->items[row];
+    int nCols = _imp->model->columnCount();
     QStringList values;
-    for (std::size_t i = 0; i < r.items.size(); ++i) {
-        values.push_back( r.items[i]->text() );
+    for (int c = 0; c < nCols; ++c) {
+        values.push_back(item->getText(c));
     }
 
     // Not enabled
-    if ( !knob->isCellEnabled(row, col, values) ) {
+    if ( !knob->isCellEnabled(idx.row(), idx.column(), values) ) {
         return;
     }
 
     // Let the standard editor
-    if ( knob->isColumnEditable(col) ) {
+    if ( knob->isColumnEditable(idx.column()) ) {
         return;
     }
     if ( !editUserEntry(values) ) {
         return;
     }
 
-    for (std::size_t i = 0; i < r.items.size(); ++i) {
-        r.items[i]->setText(values[i]);
+    for (int c = 0; c < nCols; ++c) {
+        item->setText(c, values[c]);
     }
 
     std::string oldTable = knob->getValue();
     std::string newTable = _imp->encodeTable(knob);
-    pushUndoCommand( new KnobUndoCommand<std::string>( shared_from_this(), oldTable, newTable) );
+    knobUI->pushUndoCommand( new KnobUndoCommand<std::string>( knob, oldTable, newTable, DimIdx(0), getView()) );
 } // KnobGuiTable::onItemDoubleClicked
 
 void
-KnobGuiTable::onItemDataChanged(TableItem* item)
+KnobGuiTable::onItemDataChanged(const TableItemPtr& item, int /*col*/, int /*role*/)
 {
     if (_imp->isInsertingItem || _imp->dragAndDropping) {
         return;
     }
 
-    int row = -1;
-    int col = -1;
-    for (std::size_t i = 0; i < _imp->items.size(); ++i) {
-        for (std::size_t j = 0; j < _imp->items[i].items.size(); ++j) {
-            if (_imp->items[i].items[j] == item) {
-                row = i;
-                col = j;
-                break;
-            }
-        }
-        if (row != -1) {
-            break;
-        }
-    }
+    QModelIndex idx = _imp->model->getItemIndex(item);
 
-    if (row != -1) {
-        KnobTablePtr knob = boost::dynamic_pointer_cast<KnobTable>( getKnob() );
+    if (idx.isValid()) {
+        KnobGuiPtr knobUI = getKnobGui();
+        boost::shared_ptr<KnobTable> knob = boost::dynamic_pointer_cast<KnobTable>( knobUI->getKnob() );
         assert(knob);
 
         std::string oldValue = knob->getValue();
         std::string newValue = _imp->encodeTable(knob);
         if (oldValue != newValue) {
-            tableChanged(row, col, &newValue);
-            pushUndoCommand( new KnobUndoCommand<std::string>( shared_from_this(), oldValue, newValue) );
+            tableChanged(idx.row(), idx.column(), &newValue);
+            knobUI->pushUndoCommand( new KnobUndoCommand<std::string>( knob, oldValue, newValue, DimIdx(0), getView()) );
         }
     }
 }
@@ -630,17 +577,16 @@ KnobGuiTable::onItemDataChanged(TableItem* item)
 void
 KnobGuiTable::updateToolTip()
 {
-    if ( hasToolTip() ) {
-        QString tt = toolTip();
-        _imp->table->setToolTip(tt);
+    KnobGuiPtr knobUI = getKnobGui();
+    if ( knobUI->hasToolTip() ) {
+        knobUI->toolTip(_imp->table, getView());
     }
 }
 
-KnobGuiLayers::KnobGuiLayers(KnobIPtr knob,
-                             KnobGuiContainerI *container)
-    : KnobGuiTable(knob, container)
+KnobGuiLayers::KnobGuiLayers(const KnobGuiPtr& knob, ViewIdx view)
+    : KnobGuiTable(knob, view)
 {
-    _knob = boost::dynamic_pointer_cast<KnobLayers>(knob);
+    _knob = boost::dynamic_pointer_cast<KnobLayers>(knob->getKnob());
 }
 
 KnobGuiLayers::~KnobGuiLayers()
@@ -650,7 +596,8 @@ KnobGuiLayers::~KnobGuiLayers()
 bool
 KnobGuiLayers::addNewUserEntry(QStringList& row)
 {
-    NewLayerDialog dialog( ImagePlaneDesc::getNoneComponents(), getGui() );
+    NewLayerDialog dialog( ImagePlaneDesc::getNoneComponents(), getKnobGui()->getGui() );
+
 
     if ( dialog.exec() ) {
         ImagePlaneDesc comps = dialog.getComponents();
@@ -685,7 +632,7 @@ KnobGuiLayers::addNewUserEntry(QStringList& row)
             }
         }
         row.push_back( QString::fromUtf8( channelsStr.c_str() ) );
-
+        row.push_back(QString::fromUtf8(comps.getChannelsLabel().c_str()));
         return true;
     }
 
@@ -701,8 +648,9 @@ KnobGuiLayers::editUserEntry(QStringList& row)
     for (int i = 0; i < splits.size(); ++i) {
         channels.push_back( splits[i].toStdString() );
     }
-    ImagePlaneDesc original(row[0].toStdString(), row[0].toStdString(), std::string(), channels);;
-    NewLayerDialog dialog( original, getGui() );
+    ImagePlaneDesc original(row[0].toStdString(), "", row[2].toStdString(), channels);;
+    NewLayerDialog dialog( original, getKnobGui()->getGui() );
+
     if ( dialog.exec() ) {
         ImagePlaneDesc comps = dialog.getComponents();
         if ( comps == ImagePlaneDesc::getNoneComponents() ) {
@@ -713,7 +661,8 @@ KnobGuiLayers::editUserEntry(QStringList& row)
         }
 
         std::string oldLayerName = row[0].toStdString();
-        row[0] = ( QString::fromUtf8( comps.getPlaneLabel().c_str() ) );
+        row[0] = ( QString::fromUtf8( comps.getPlaneID().c_str() ) );
+
 
         KnobLayersPtr knob = _knob.lock();
         if (!knob) {
@@ -722,7 +671,8 @@ KnobGuiLayers::editUserEntry(QStringList& row)
         std::list<std::vector<std::string> > table;
         knob->getTable(&table);
         for (std::list<std::vector<std::string> >::iterator it = table.begin(); it != table.end(); ++it) {
-            if ( ( (*it)[0] == comps.getPlaneLabel() ) && ( (*it)[0] != oldLayerName ) ) {
+            if ( ( (*it)[0] == comps.getPlaneID() ) && ( (*it)[0] != oldLayerName ) ) {
+
                 Dialogs::errorDialog( tr("Layer").toStdString(), tr("A Layer with the same name already exists").toStdString() );
 
                 return false;
@@ -738,7 +688,7 @@ KnobGuiLayers::editUserEntry(QStringList& row)
             }
         }
         row[1] = ( QString::fromUtf8( channelsStr.c_str() ) );
-
+        row[2] = QString::fromUtf8(comps.getChannelsLabel().c_str());
         return true;
     }
 
@@ -753,7 +703,8 @@ KnobGuiLayers::tableChanged(int row,
     if (col != 0) {
         return;
     }
-    KnobLayersPtr knob = boost::dynamic_pointer_cast<KnobLayers>( getKnob() );
+
+    boost::shared_ptr<KnobLayers> knob = boost::dynamic_pointer_cast<KnobLayers>( getKnobGui()->getKnob() );
     assert(knob);
     std::list<std::vector<std::string> > table;
     knob->decodeFromKnobTableFormat(*newEncodedValue, &table);
@@ -769,11 +720,6 @@ KnobGuiLayers::tableChanged(int row,
     }
 }
 
-KnobIPtr
-KnobGuiLayers::getKnob() const
-{
-    return _knob.lock();
-}
 
 NATRON_NAMESPACE_EXIT
 

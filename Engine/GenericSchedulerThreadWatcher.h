@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,11 +31,12 @@
 #include <list>
 
 #if !defined(Q_MOC_RUN) && !defined(SBK_RUN)
+#include <boost/shared_ptr.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
 #endif
 
-#include <QThread>
+#include <QtCore/QThread>
 
 #include "Engine/EngineFwd.h"
 
@@ -48,7 +50,7 @@ NATRON_NAMESPACE_ENTER
  * and connect a slot to the threadFinished() signal. Whenever executing this slot, it is then safe to assume that the thread is finished and you can also
  * destroy the watcher.
  *
- * You should never use the GenericSchedulerThreadWatcher to perform multiple tasks, because it is then uncertain for which task, which slot you are going to be receving,
+ * You should never use the GenericSchedulerThreadWatcher to perform multiple tasks, because it is then uncertain for which task, which slot you are going to be receiving,
  * even though the class is safely implemented to support multiple tasks.
  *
  * Note: the GenericSchedulerThread object should live as long as this object lives.

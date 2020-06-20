@@ -46,8 +46,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = 'Natron'
-copyright = '2013-2018 The Natron documentation authors, licensed under CC BY-SA 4.0'
+project = u'Natron'
+copyright = u'2013-2020 The Natron documentation authors, licensed under CC BY-SA 4.0'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -57,12 +57,13 @@ copyright = '2013-2018 The Natron documentation authors, licensed under CC BY-SA
 # the list of currently maintained versions (those that have to be merged into the master branch)
 version_21 = '2.1.10'
 version_22 = '2.2.10'
-version_23 = '2.3.15'
+version_23 = '2.3.16'
+version_24 = '2.4.0'
 version_30 = '3.0.0'
 
 # The version for this branch
 # The full version, including alpha/beta/rc tags.
-release = version_23
+release = version_30
 #
 # The short X.Y version.
 version = '.'.join(release.split('.')[0:2])

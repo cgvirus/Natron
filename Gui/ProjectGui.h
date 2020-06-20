@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,6 +33,8 @@
 #include <boost/weak_ptr.hpp>
 #endif
 
+#include <set>
+
 CLANG_DIAG_OFF(deprecated)
 CLANG_DIAG_OFF(uninitialized)
 #include <QtCore/QObject>
@@ -40,7 +43,7 @@ CLANG_DIAG_ON(deprecated)
 CLANG_DIAG_ON(uninitialized)
 
 #include "Engine/Format.h"
-
+#include "Engine/ViewIdx.h"
 #include "Gui/GuiFwd.h"
 
 NATRON_NAMESPACE_ENTER
@@ -57,7 +60,7 @@ public:
     ProjectGui(Gui* gui);
     virtual ~ProjectGui() OVERRIDE;
 
-    void create(ProjectPtr projectInternal, QVBoxLayout* container, QWidget* parent = NULL);
+    void create(const ProjectPtr& projectInternal, QVBoxLayout* container, QWidget* parent = NULL);
 
 
     bool isVisible() const;
@@ -72,15 +75,11 @@ public:
         return _project.lock();
     }
 
-    template<class Archive>
-    void save(Archive & ar) const;
+    void load(bool isAutosave, const SERIALIZATION_NAMESPACE::ProjectSerializationPtr& serialization);
 
-    template<class Archive>
-    void load(bool isAutosave, Archive & ar);
+    void registerNewColorPicker(KnobColorPtr knob, ViewIdx view);
 
-    void registerNewColorPicker(KnobColorPtr knob);
-
-    void removeColorPicker(KnobColorPtr knob);
+    void removeColorPicker(KnobColorPtr knob, ViewIdx view);
 
     void clearColorPickers();
 
@@ -89,10 +88,10 @@ public:
         return !_colorPickersEnabled.empty();
     }
 
-    void setPickersColor(double r, double g, double b, double a);
+    void setPickersColor(ViewIdx view, double r, double g, double b, double a);
 
     /**
-     * @brief Retur
+     * @brief Return
      **/
     NodesGuiList getVisibleNodes() const;
     Gui* getGui() const
@@ -115,7 +114,44 @@ private:
     ProjectWPtr _project;
     DockablePanel* _panel;
     bool _created;
-    std::vector<KnobColorPtr> _colorPickersEnabled;
+
+    struct PickerKnob
+    {
+        KnobColorPtr knob;
+        ViewIdx view;
+
+        PickerKnob(const KnobColorPtr& knob, ViewIdx view)
+        : knob(knob)
+        , view(view)
+        {
+
+        }
+
+        PickerKnob()
+        : knob()
+        , view()
+        {
+
+        }
+    };
+
+    struct PickerKnobCompare
+    {
+        bool operator()(const PickerKnob& lhs, const PickerKnob &rhs) const
+        {
+            if (lhs.view < rhs.view) {
+                return true;
+            } else if (lhs.view > rhs.view) {
+                return false;
+            } else {
+                return lhs.knob < rhs.knob;
+            }
+        }
+    };
+
+    typedef std::set<PickerKnob, PickerKnobCompare> PickerKnobSet;
+
+    PickerKnobSet _colorPickersEnabled;
 };
 
 
@@ -144,7 +180,7 @@ public Q_SLOTS:
 private:
 
     Gui* _gui;
-    std::list<ViewerInstance*> _viewers;
+    std::list<ViewerInstancePtr> _viewers;
     QVBoxLayout* _mainLayout;
     QWidget* _fromViewerLine;
     QHBoxLayout* _fromViewerLineLayout;

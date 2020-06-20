@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,7 +41,9 @@
 #include "Engine/ImagePlaneDesc.h"
 #include "Engine/Knob.h" // KnobI
 #include "Engine/PyNodeGroup.h" // Group
+#include "Engine/PyItemsTable.h"
 #include "Engine/RectD.h"
+
 #include "Engine/EngineFwd.h"
 
 NATRON_NAMESPACE_ENTER;
@@ -103,17 +106,20 @@ public:
 
 class UserParamHolder
 {
-    KnobHolder* _holder;
+
+    Q_DECLARE_TR_FUNCTIONS(UserParamHolder)
+
+    KnobHolderWPtr _holder;
 
 public:
 
     UserParamHolder();
 
-    UserParamHolder(KnobHolder* holder);
+    UserParamHolder(const KnobHolderPtr& holder);
 
     virtual ~UserParamHolder() {}
 
-    void setHolder(KnobHolder* holder);
+    void setHolder(const KnobHolderPtr& holder);
 
     /////////////Functions to create custom parameters//////////////////////////
     ///////////////////////////////////////////////////////////////////////////
@@ -185,7 +191,10 @@ public:
     ColorParam* createColorParam(const QString& name, const QString& label, bool useAlpha);
     StringParam* createStringParam(const QString& name, const QString& label);
     FileParam* createFileParam(const QString& name, const QString& label);
-    OutputFileParam* createOutputFileParam(const QString& name, const QString& label);
+
+    // For bw compat only
+    FileParam* createOutputFileParam(const QString& name, const QString& label);
+
     PathParam* createPathParam(const QString& name, const QString& label);
     ButtonParam* createButtonParam(const QString& name, const QString& label);
     SeparatorParam* createSeparatorParam(const QString& name, const QString& label);
@@ -201,17 +210,15 @@ public:
      **/
     void refreshUserParamsGUI();
 
-    virtual bool onKnobValueChanged(KnobI* k,
-                                    ValueChangedReasonEnum reason,
+    virtual bool onKnobValueChanged(const KnobIPtr& k,
+                                    NATRON_NAMESPACE::ValueChangedReasonEnum reason,
                                     double time,
-                                    ViewSpec view,
-                                    bool originatedFromMainThread)
+                                    ViewSetSpec view)
     {
         Q_UNUSED(k);
         Q_UNUSED(reason);
         Q_UNUSED(time);
         Q_UNUSED(view);
-        Q_UNUSED(originatedFromMainThread);
 
         return false;
     }
@@ -220,6 +227,9 @@ public:
 class Effect
     : public Group, public UserParamHolder
 {
+
+    Q_DECLARE_TR_FUNCTIONS(Effect)
+
     NodeWPtr _node;
 
 public:
@@ -234,11 +244,14 @@ public:
 
     bool isWriterNode();
 
+    bool isOutputNode();
+
+    Group* getContainerGroup() const;
+
     /**
      * @brief Removes the node from the project. It will no longer be possible to use it.
-     * @param autoReconnect If set to true, outputs connected to this node will try to connect to the input of this node automatically.
      **/
-    void destroy(bool autoReconnect = true);
+    void destroy();
 
     /**
      * @brief Returns the maximum number of inputs that can be connected to the node.
@@ -253,7 +266,7 @@ public:
     /**
      * @brief Attempts to connect the Effect 'input' to the given inputNumber.
      * This function uses canSetInput(int,Effect) to determine whether a connection is possible.
-     * There's no auto-magic behind this function: you must explicitely disconnect any already connected Effect
+     * There's no auto-magic behind this function: you must explicitly disconnect any already connected Effect
      * to the given inputNumber otherwise this function will return false.
      **/
     bool connectInput(int inputNumber, const Effect* input);
@@ -313,18 +326,22 @@ public:
     Param* getParam(const QString& name) const;
 
     /**
-     * @brief When called, all parameter changes will not call the callback onParamChanged and will not attempt to trigger a new render.
-     * A call to allowEvaluation() should be made to restore the state of the Effect
+     * @brief When called, all parameter changes will not  attempt to trigger a new render.
+     * A call to endChanges() should be made to restore the state of the Effect
      **/
     void beginChanges();
 
     void endChanges();
 
+    void beginParametersUndoCommand(const QString& name);
+
+    void endParametersUndoCommand();
+
     /**
      * @brief Get the current time on the timeline or the time of the frame being rendered by the caller thread if a render
      * is ongoing in that thread.
      **/
-    int getCurrentTime() const;
+    double getCurrentTime() const;
 
     /**
      * @brief Set the position of the top left corner of the node in the nodegraph. This is ignored in background mode.
@@ -348,7 +365,6 @@ public:
      * @brief Returns true if the node is selected in the nodegraph
      **/
     bool isNodeSelected() const;
-
     /**
      * @brief Get the user page param. Note that user created params (with the function above) may only be added to user created pages,
      * that is, the page returned by getUserPageParam() or in any page created by createPageParam().
@@ -358,18 +374,23 @@ public:
     ////////////////////////////////////////////////////////////////////////////
 
     /**
-     * @brief Get the roto context for this node if it has any. At the time of writing only the Roto node has a roto context.
+     * @brief Get the table from its identifier
      **/
-    Roto* getRotoContext() const;
+    ItemsTable* getItemsTable(const QString& identifier) const;
 
     /**
-     * @brief Get the tracker context for this node if it has any. Currently only Tracker has one.
+     * @brief Get the tables for this node if it has any.
      **/
-    Tracker* getTrackerContext() const;
+    std::list<ItemsTable*> getAllItemsTable() const;
+
 
     RectD getRegionOfDefinition(double time, int /* Python API: do not use ViewIdx */ view) const;
 
+    RectD getRegionOfDefinition(double time, const QString& view) const;
+
     static Param* createParamWrapperForKnob(const KnobIPtr& knob);
+
+    static ItemsTable* createItemsTableWrapper(const KnobItemsTablePtr& table);
 
     void setSubGraphEditable(bool editable);
 
@@ -387,6 +408,22 @@ public:
     NATRON_NAMESPACE::ImagePremultiplicationEnum getPremult() const;
 
     void setPagesOrder(const QStringList& pages);
+
+    void insertParamInViewerUI(Param* param, int index = -1);
+
+    void removeParamFromViewerUI(Param* param);
+
+    void clearViewerUIParameters();
+
+    bool registerOverlay(PyOverlayInteract* interact, const std::map<QString, QString>& params);
+
+    void removeOverlay(PyOverlayInteract* interact);
+
+private:
+
+    EffectInstancePtr getCurrentEffectInstance() const;
+
+
 };
 
 NATRON_PYTHON_NAMESPACE_EXIT

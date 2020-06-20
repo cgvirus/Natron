@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,6 +28,10 @@
 
 #include "Global/Macros.h"
 
+#if !defined(Q_MOC_RUN) && !defined(SBK_RUN)
+#include <boost/shared_ptr.hpp>
+#endif
+
 CLANG_DIAG_OFF(deprecated)
 #include <QtCore/QProcess>
 #include <QtCore/QThread>
@@ -45,7 +50,7 @@ NATRON_NAMESPACE_ENTER
 /**
  * @brief This class represents a background render process. It starts a render and reports progress via a
  * progress dialog. This class encaspulates an IPC server (a named pipe) where the render process can write to
- * in order to communicate withe the main process (the GUI app).
+ * in order to communicate with the main process (the GUI app).
  * @see ProcessInputChannel represents the "input" pipe of the background process, this is where the background
  * app expect messages from the "main" process to come. It listen to messages from the main app to take decisions.
  * For instance, the main app can ask the background process to terminate via this channel.
@@ -85,7 +90,7 @@ class ProcessHandler
     Q_OBJECT
 
     QProcess* _process; //< the process executing the render
-    OutputEffectInstance* _writer; //< pointer to the writer that will render in the bg process
+    NodePtr _writer; //< pointer to the writer that will render in the bg process
     QLocalServer* _ipcServer; //< the server for IPC with the background process
     QLocalSocket* _bgProcessOutputSocket; //< the socket where data is output by the process
 
@@ -104,12 +109,13 @@ public:
      * The process will render using the effect specified by writer.
      **/
     ProcessHandler(const QString & projectPath,
-                   OutputEffectInstance* writer);
+                   const NodePtr& writer);
 
     virtual ~ProcessHandler();
 
     const QString & getProcessLog() const;
-    OutputEffectInstance* getWriter() const
+    
+    NodePtr getWriter() const
     {
         return _writer;
     }

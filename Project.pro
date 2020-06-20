@@ -1,6 +1,7 @@
 # ***** BEGIN LICENSE BLOCK *****
 # This file is part of Natron <https://natrongithub.github.io/>,
-# Copyright (C) 2013-2018 INRIA and Alexandre Gauthier
+# (C) 2018-2020 The Natron developers
+# (C) 2013-2018 INRIA and Alexandre Gauthier
 #
 # Natron is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -32,10 +33,13 @@ SUBDIRS += \
     qhttpserver \
     hoedown \
     libtess \
+    yaml-cpp \
+    Serialization \
     Engine \
     Renderer \
     Gui \
     Tests \
+    ProjectConverter \
     PythonBin \
     App
 
@@ -48,17 +52,20 @@ openMVG.subdir     = libs/openMVG
 qhttpserver.subdir = libs/qhttpserver
 hoedown.subdir     = libs/hoedown
 libtess.subdir     = libs/libtess
+yaml-cpp.subdir     = libs/yaml-cpp
 
 # what subproject depends on others
 glog.depends = gflags
 ceres.depends = glog gflags
 libmv.depends = gflags ceres
 openMVG.depends = ceres
-Engine.depends = libmv openMVG HostSupport libtess ceres
+Serialization.depends = yaml-cpp
+Engine.depends = libmv openMVG HostSupport libtess ceres Serialization
 Renderer.depends = Engine
 Gui.depends = Engine qhttpserver
 Tests.depends = Gui Engine
 App.depends = Gui Engine
+ProjectConverter.depends = Gui Engine
 
 OTHER_FILES += \
     Global/Enums.h \
@@ -70,6 +77,15 @@ OTHER_FILES += \
     Global/QtCompat.h \
     global.pri \
     config.pri
+
+CONFIG(enable-osmesa) {
+    isEmpty(LLVM_PATH) {
+        message("enable-osmesa was passed to the config but you did not set LLVM_PATH, defaulting to /opt/llvm")
+    }
+    isEmpty(OSMESA_PATH) {
+        message("enable-osmesa was passed to the config but you did not set OSMESA_PATH, defaulting to /opt/osmesa")
+    }
+}
 
 include(global.pri)
 include(config.pri)

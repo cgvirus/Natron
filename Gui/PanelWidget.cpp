@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,19 +31,23 @@
 #include <QUndoStack>
 #include <QApplication>
 #include <QKeyEvent>
-
+#include "Engine/UndoCommand.h"
 #include "Gui/TabWidget.h"
 #include "Gui/Gui.h"
+#include "Gui/UndoCommand_qt.h"
 
 NATRON_NAMESPACE_ENTER
 
-PanelWidget::PanelWidget(QWidget* thisWidget,
+PanelWidget::PanelWidget(const std::string& scriptName,
+                         QWidget* thisWidget,
                          Gui* gui)
     : ScriptObject()
     , _thisWidget(thisWidget)
     , _gui(gui)
 {
     assert(_gui && _thisWidget);
+    setScriptNameInternal(scriptName, false);
+    _gui->registerTab(this, this);
 }
 
 PanelWidget::~PanelWidget()
@@ -94,7 +99,7 @@ PanelWidget::enterEventBase()
         _thisWidget->setFocus();
 
         //Make this stack the active one
-        QUndoStack* stack = getUndoStack();
+        boost::shared_ptr<QUndoStack> stack = getUndoStack();
         if (stack) {
             stack->setActive();
         }
@@ -106,7 +111,7 @@ PanelWidget::enterEventBase()
 void
 PanelWidget::pushUndoCommand(QUndoCommand* command)
 {
-    QUndoStack* stack = getUndoStack();
+    boost::shared_ptr<QUndoStack> stack = getUndoStack();
 
     if (stack) {
         stack->setActive();
@@ -115,6 +120,19 @@ PanelWidget::pushUndoCommand(QUndoCommand* command)
         //You are trying to push a command to a widget that do not own a stack!
         assert(false);
     }
+}
+
+void
+PanelWidget::pushUndoCommand(const UndoCommandPtr& command)
+{
+    pushUndoCommand(new UndoCommand_qt(command));
+}
+
+void
+PanelWidget::pushUndoCommand(UndoCommand* command)
+{
+    UndoCommandPtr p(command);
+    pushUndoCommand(p);
 }
 
 bool
@@ -196,5 +214,20 @@ PanelWidget::handleUnCaughtKeyPressEvent(QKeyEvent* e)
         qApp->sendEvent(_gui, e);
     }
 }
+
+
+void
+PanelWidget::onScriptNameChanged()
+{
+    getGui()->unregisterTab(this);
+    getGui()->registerTab(this, this);
+}
+
+void
+PanelWidget::onLabelChanged()
+{
+
+}
+
 
 NATRON_NAMESPACE_EXIT

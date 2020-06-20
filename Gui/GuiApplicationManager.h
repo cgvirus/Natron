@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,9 +39,10 @@
 #include <QtCore/QtGlobal> // for Q_OS_*
 
 #include "Engine/AppManager.h"
+#include "Engine/DimensionIdx.h"
 #include "Engine/Variant.h"
 #include "Engine/EngineFwd.h"
-
+#include "Engine/ViewIdx.h"
 #include "Gui/GuiFwd.h"
 
 #if defined(appPTR)
@@ -57,25 +59,12 @@
 #define isKeybind(group, action, modifiers, symbol) ( appPTR->matchesKeybind(group, action, modifiers, symbol) )
 
 /**
- * @brief Returns true if the given modifiers and button should trigger the given action of the given group.
- **/
-#define isMouseShortcut(group, action, modifiers, button) ( appPTR->matchesMouseShortcut(group, action, modifiers, button) )
-
-/**
  * @brief Returns the QKeySequence object for the given action of the given group.
  **/
 #define getKeybind(group, action) ( appPTR->getKeySequenceForAction(group, action) )
 
 
 NATRON_NAMESPACE_ENTER
-
-struct PythonUserCommand
-{
-    QString grouping;
-    Qt::Key key;
-    Qt::KeyboardModifiers modifiers;
-    std::string pythonFunction;
-};
 
 struct GuiApplicationManagerPrivate;
 class GuiApplicationManager
@@ -92,13 +81,7 @@ public:
     virtual ~GuiApplicationManager();
 
     const std::list<PluginGroupNodePtr> & getTopLevelPluginsToolButtons() const;
-    PluginGroupNodePtr  findPluginToolButtonOrCreate(const QStringList & grouping,
-                                                                     const QString & name,
-                                                                     const QStringList& groupIconPath,
-                                                                     const QString & iconPath,
-                                                                     int major,
-                                                                     int minor,
-                                                                     bool isUserCreatable);
+    PluginGroupNodePtr  findPluginToolButtonOrCreate(const PluginPtr& plugin);
     virtual bool isBackground() const OVERRIDE FINAL
     {
         return false;
@@ -109,12 +92,14 @@ public:
 
     void setKnobClipBoard(KnobClipBoardType type,
                           const KnobIPtr& serialization,
-                          int dimension);
+                          DimSpec dimension,
+                          ViewSetSpec view);
 
 
     void getKnobClipBoard(KnobClipBoardType *type,
                           KnobIPtr* serialization,
-                          int *dimension) const;
+                          DimSpec *dimension,
+                          ViewSetSpec *view) const;
 
 
     void updateAllRecentFileMenus();
@@ -126,9 +111,9 @@ public:
     const QCursor & getLinkToCursor() const;
     const QCursor & getLinkToMultCursor() const;
     virtual void setLoadingStatus(const QString & str) OVERRIDE FINAL;
-    KnobGui* createGuiForKnob(KnobIPtr knob, KnobGuiContainerI *container) const;
+    KnobGuiWidgets* createGuiForKnob(const KnobGuiPtr& knob, ViewIdx) const;
     virtual void setUndoRedoStackLimit(int limit) OVERRIDE FINAL;
-    virtual void debugImage( const Image* image, const RectI& roi, const QString & filename = QString() ) const OVERRIDE FINAL;
+    virtual void debugImage( const ImagePtr& image, const RectI& roi, const QString & filename = QString() ) const OVERRIDE FINAL;
 
     void setFileToOpen(const QString & str);
 
@@ -141,33 +126,9 @@ public:
                         const Qt::KeyboardModifiers & modifiers,
                         int symbol) const;
 
-    /**
-     * @brief Returns true if the given keyboard modifiers and the given mouse button match the given action.
-     * The button parameter is to be casted to the Qt::MouseButton enum
-     **/
-    bool matchesMouseShortcut(const std::string & group, const std::string & actionID, const Qt::KeyboardModifiers & modifiers, int button) const;
+    QKeySequence getKeySequenceForAction(const QString & group, const QString & actionID) const;
 
-    std::list<QKeySequence> getKeySequenceForAction(const QString & group, const QString & actionID) const;
 
-    /**
-     * @brief Save shortcuts to QSettings
-     **/
-    void saveShortcuts() const;
-
-    void restoreDefaultShortcuts();
-
-    const std::map<QString, std::map<QString, BoundAction*> > & getAllShortcuts() const;
-
-    /**
-     * @brief Register an action to the shortcut manager indicating it is using a shortcut.
-     * This is used to update the action's shortcut when it gets modified by the user.
-     **/
-    void addShortcutAction(const QString & group, const QString & actionID, ActionWithShortcut* action);
-    void removeShortcutAction(const QString & group, const QString & actionID, QAction* action);
-
-    void notifyShortcutChanged(KeyBoundAction* action);
-
-    bool isShorcutVersionUpToDate() const;
 
     virtual void showErrorLog() OVERRIDE FINAL;
     virtual QString getAppFont() const OVERRIDE FINAL WARN_UNUSED_RETURN;
@@ -176,20 +137,13 @@ public:
     ///Closes the application, asking the user to save each opened project that has unsaved changes
     virtual void exitApp(bool warnUserForSave) OVERRIDE FINAL;
 
-    bool isNodeClipBoardEmpty() const;
-
-    NodeClipBoard& getNodeClipBoard();
     virtual void reloadStylesheets() OVERRIDE FINAL;
     virtual void reloadScriptEditorFonts() OVERRIDE FINAL;
 
-    void clearNodeClipBoard();
-
-    virtual void addCommand(const QString& grouping, const std::string& pythonFunction, Qt::Key key, const Qt::KeyboardModifiers& modifiers) OVERRIDE;
-    const std::list<PythonUserCommand>& getUserPythonCommands() const;
 
     bool handleImageFileOpenRequest(const std::string& imageFile);
 
-    void appendTaskToPreviewThread(const NodeGuiPtr& node, double time);
+    void appendTaskToPreviewThread(const NodeGuiPtr& node, TimeValue time);
 
     int getDocumentationServerPort();
 
@@ -202,6 +156,7 @@ public:
     virtual double getLogicalDPIYRATIO() const OVERRIDE FINAL WARN_UNUSED_RETURN;
     virtual void updateAboutWindowLibrariesVersion() OVERRIDE FINAL;
 
+   
 public Q_SLOTS:
 
     void onFontconfigCacheUpdateFinished();
@@ -216,11 +171,7 @@ private:
 
     virtual void initBuiltinPythonModules() OVERRIDE FINAL;
 
-    void onPluginLoaded(Plugin* plugin) OVERRIDE;
-    virtual void ignorePlugin(Plugin* plugin) OVERRIDE FINAL;
-    virtual void onAllPluginsLoaded() OVERRIDE FINAL;
-    virtual void loadBuiltinNodePlugins(IOPluginsMap* readersMap,
-                                        IOPluginsMap* writersMap) OVERRIDE;
+    void onPluginLoaded(const PluginPtr& plugin) OVERRIDE;
     virtual bool initGui(const CLArgs& args) OVERRIDE FINAL;
     virtual AppInstancePtr makeNewInstance(int appID) const OVERRIDE FINAL;
     virtual void registerGuiMetaTypes() const OVERRIDE FINAL;
@@ -229,13 +180,7 @@ private:
     void handleOpenFileRequest();
 
     virtual void onLoadCompleted() OVERRIDE FINAL;
-    virtual void clearLastRenderedTextures() OVERRIDE FINAL;
-    /**
-     * @brief Load shortcuts from QSettings
-     **/
-    void loadShortcuts();
 
-    void populateShortcuts();
 
     boost::scoped_ptr<GuiApplicationManagerPrivate> _imp;
 };

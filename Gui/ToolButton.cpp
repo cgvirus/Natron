@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,7 +33,10 @@ CLANG_DIAG_OFF(deprecated)
 #include <QtCore/QtAlgorithms>
 CLANG_DIAG_ON(deprecated)
 
+#if !defined(Q_MOC_RUN) && !defined(SBK_RUN)
 #include <boost/weak_ptr.hpp>
+#endif
+
 #include "Gui/GuiAppInstance.h"
 #include "Gui/Gui.h"
 #include "Engine/CreateNodeArgs.h"
@@ -184,6 +188,15 @@ ToolButton::getPluginToolButton() const
 void
 ToolButton::onTriggered()
 {
+    QAction* action = qobject_cast<QAction*>(sender());
+    if (!action) {
+        return;
+    }
+
+    // See Gui20.cpp findOrCreateToolButton(), we set the action data to be the presets labe we want to load.
+    // If there's no preset, we create the default node.
+    QString presetLabel = action->data().toString();
+
     GuiAppInstancePtr app = _imp->_app.lock();
 
     if (!app) {
@@ -192,9 +205,10 @@ ToolButton::onTriggered()
     NodeCollectionPtr group = app->getGui()->getLastSelectedNodeCollection();
 
     assert(group);
-    CreateNodeArgs args(_imp->_id.toStdString(), group);
-    args.setProperty<int>(kCreateNodeArgsPropPluginVersion, _imp->_major, 0);
-    args.setProperty<int>(kCreateNodeArgsPropPluginVersion, _imp->_minor, 1);
+    CreateNodeArgsPtr args(CreateNodeArgs::create(_imp->_id.toStdString(), group));
+    args->setProperty<int>(kCreateNodeArgsPropPluginVersion, _imp->_major, 0);
+    args->setProperty<int>(kCreateNodeArgsPropPluginVersion, _imp->_minor, 1);
+    args->setProperty<std::string>(kCreateNodeArgsPropPreset, presetLabel.toStdString());
     app->createNode(args);
 }
 

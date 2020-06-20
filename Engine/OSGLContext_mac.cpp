@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -51,7 +52,9 @@
 #include <OpenGL/CGLTypes.h>
 #include <OpenGL/CGLRenderers.h>
 
+#include "Engine/OSGLFunctions.h"
 #include "Engine/OSGLContext.h"
+#include "Engine/AppManager.h"
 
 // see Availability.h
 #ifdef __MAC_OS_X_VERSION_MIN_REQUIRED
@@ -577,7 +580,7 @@ OSGLContext_mac::getGPUInfos(std::list<OpenGLRendererInfo>& renderers)
         // Create a dummy OpenGL context for that specific renderer to retrieve more infos
         // See https://developer.apple.com/library/mac/technotes/tn2080/_index.html
         std::vector<CGLPixelFormatAttribute> attributes;
-        makeAttribsFromFBConfig(FramebufferConfig(), GLVersion.major, GLVersion.minor, false, rendererID, attributes);
+        makeAttribsFromFBConfig(FramebufferConfig(), appPTR->getOpenGLVersionMajor(), appPTR->getOpenGLVersionMinor(), false, rendererID, attributes);
         CGLPixelFormatObj pixelFormat;
         GLint numPixelFormats;
         CGLError errorCode = CGLChoosePixelFormat(&attributes[0], &pixelFormat, &numPixelFormats);
@@ -602,20 +605,14 @@ OSGLContext_mac::getGPUInfos(std::list<OpenGLRendererInfo>& renderers)
             continue;
         }
         // get renderer strings
-        bool glLoaded = gladLoadGL();
-        if (glLoaded) {
-            info.rendererName = std::string( (const char*)glGetString (GL_RENDERER) );
-            info.vendorName = std::string( (const char*)glGetString (GL_VENDOR) );
-            info.glVersionString = std::string( (const char*)glGetString (GL_VERSION) );
-            info.glslVersionString = std::string( (const char*)glGetString (GL_SHADING_LANGUAGE_VERSION) );
-            //std::string strExt((char*)glGetString (GL_EXTENSIONS));
+        info.rendererName = std::string( (char*)GL_GPU::GetString (GL_RENDERER) );
+        info.vendorName = std::string( (char*)GL_GPU::GetString (GL_VENDOR) );
+        info.glVersionString = std::string( (char*)GL_GPU::GetString (GL_VERSION) );
+        info.glslVersionString = std::string( (char*)GL_GPU::GetString (GL_SHADING_LANGUAGE_VERSION) );
+        //std::string strExt((char*)glGetString (GL_EXTENSIONS));
 
-            glGetIntegerv (GL_MAX_TEXTURE_SIZE,
-                           &info.maxTextureSize);
-        } else {
-            info.rendererName = info.vendorName = info.glVersionString = info.glslVersionString = "unknown";
-            info.maxTextureSize = 0;
-        }
+        GL_GPU::GetIntegerv (GL_MAX_TEXTURE_SIZE,
+                       &info.maxTextureSize);
 
         CGLDestroyContext (cglContext);
 

@@ -4,7 +4,7 @@
 Param
 *****
 
-**Inherited by:** :ref:`ParametricParam`, :ref:`PageParam`, :ref:`GroupParam`, :ref:`ButtonParam`, :ref:`AnimatedParam`, :ref:`StringParamBase`, :ref:`PathParam`, :ref:`OutputFileParam`, :ref:`FileParam`, :ref:`StringParam`, :ref:`BooleanParam`, :ref:`ChoiceParam`, :ref:`ColorParam`, :ref:`DoubleParam`, :ref:`Double2DParam`, :ref:`Double3DParam`, :ref:`IntParam`, :ref:`Int2DParam`, :ref:`Int3DParam`
+**Inherited by:** :doc:`ParametricParam`, :doc:`PageParam`, :doc:`GroupParam`, :doc:`ButtonParam`, :doc:`AnimatedParam`, :doc:`StringParamBase`, :doc:`PathParam`, :doc:`OutputFileParam`, :doc:`FileParam`, :doc:`StringParam`, :doc:`BooleanParam`, :doc:`ChoiceParam`, :doc:`ColorParam`, :doc:`DoubleParam`, :doc:`Double2DParam`, :doc:`Double3DParam`, :doc:`IntParam`, :doc:`Int2DParam`, :doc:`Int3DParam`
 
 Synopsis
 --------
@@ -15,40 +15,56 @@ panel of a node. See :ref:`details here<paramdetails>`.
 Functions
 ^^^^^^^^^
 
-- def :meth:`copy<NatronEngine.Param.copy>` (param[, dimension=-1])
-- def :meth:`curve<NatronEngine.Param.curve>` (time[, dimension=-1])
+- def :meth:`beginChanges<NatronEngine.Param.beginChanges>` ()
+- def :meth:`copy<NatronEngine.Param.copy>` (param[, thisDimension=-1, otherDimension=-1, thisView="All", otherView="All"])
+- def :meth:`curve<NatronEngine.Param.curve>` (time[, dimension=-1, view="Main"])
+- def :meth:`endChanges<NatronEngine.Param.endChanges>` ()
 - def :meth:`getAddNewLine<NatronEngine.Param.getAddNewLine>` ()
 - def :meth:`getCanAnimate<NatronEngine.Param.getCanAnimate>` ()
 - def :meth:`getEvaluateOnChange<NatronEngine.Param.getEvaluateOnChange>` ()
 - def :meth:`getHelp<NatronEngine.Param.getHelp>` ()
 - def :meth:`getIsAnimationEnabled<NatronEngine.Param.getIsAnimationEnabled>` ()
-- def :meth:`getIsEnabled<NatronEngine.Param.getIsEnabled>` ([dimension=0])
-- def :meth:`getIsPersistant<NatronEngine.Param.getIsPersistant>` ()
+- def :meth:`getIsEnabled<NatronEngine.Param.getIsEnabled>` ()
+- def :meth:`getIsPersistent<NatronEngine.Param.getIsPersistent>` ()
 - def :meth:`getIsVisible<NatronEngine.Param.getIsVisible>` ()
 - def :meth:`getLabel<NatronEngine.Param.getLabel>` ()
 - def :meth:`getNumDimensions<NatronEngine.Param.getNumDimensions>` ()
 - def :meth:`getParent<NatronEngine.Param.getParent>` ()
+- def :meth:`getParentEffect<NatronEngine.Param.getParentEffect>` ()
+- def :meth:`getParentItemBase<NatronEngine.Param.getParentItemBase>` ()
+- def :meth:`getApp<NatronEngine.Param.getApp>` ()
 - def :meth:`getScriptName<NatronEngine.Param.getScriptName>` ()
 - def :meth:`getTypeName<NatronEngine.Param.getTypeName>` ()
-- def :meth:`random<NatronEngine.Param.random` ([min=0.,max=1.])
-- def :meth:`random<NatronEngine.Param.random` (seed)
-- def :meth:`randomInt<NatronEngine.Param.randomInt` (min,max)
-- def :meth:`randomInt<NatronEngine.Param.randomInt` (seed)
+- def :meth:`getViewerUILayoutType<NatronEngine.Param.getViewerUILayoutType>` ()
+- def :meth:`getViewerUIItemSpacing<NatronEngine.Param.getViewerUIItemSpacing>` ()
+- def :meth:`getViewerUIIconFilePath<NatronEngine.Param.getViewerUIIconFilePath>` ([checked=False])
+- def :meth:`getViewerUILabel<NatronEngine.Param.getViewerUILabel>` ()
+- def :meth:`getHasViewerUI<NatronEngine.Param.getHasViewerUI>` ()
+- def :meth:`getViewerUIVisible<NatronEngine.Param.getViewerUIVisible>` ()
+- def :meth:`isExpressionCacheEnabled<NatronEngine.Param.isExpressionCacheEnabled>` ()
+- def :meth:`random<NatronEngine.Param.random>` ([min=0.,max=1.])
+- def :meth:`random<NatronEngine.Param.random>` (seed)
+- def :meth:`randomInt<NatronEngine.Param.randomInt>` (min,max)
+- def :meth:`randomInt<NatronEngine.Param.randomInt>` (seed)
 - def :meth:`setAddNewLine<NatronEngine.Param.setAddNewLine>` (a)
 - def :meth:`setAnimationEnabled<NatronEngine.Param.setAnimationEnabled>` (e)
-- def :meth:`setEnabled<NatronEngine.Param.setEnabled>` (enabled[, dimension=0])
-- def :meth:`setEnabledByDefault<NatronEngine.Param.setEnabledByDefault>` (enabled)
+- def :meth:`setEnabled<NatronEngine.Param.setEnabled>` (enabled)
 - def :meth:`setEvaluateOnChange<NatronEngine.Param.setEvaluateOnChange>` (eval)
-- def :meth:`setIconFilePath<NatronEngine.Param.setIconFilePath>` (icon)
+- def :meth:`setIconFilePath<NatronEngine.Param.setIconFilePath>` (icon [,checked=False])
+- def :meth:`setLabel<NatronEngine.Param.setLabel>` (label)
 - def :meth:`setHelp<NatronEngine.Param.setHelp>` (help)
-- def :meth:`setPersistant<NatronEngine.Param.setPersistant>` (persistant)
+- def :meth:`setPersistent<NatronEngine.Param.setPersistent>` (persistent)
+- def :meth:`setExpressionCacheEnabled<NatronEngine.Param.setExpressionCacheEnabled>` (enabled)
 - def :meth:`setVisible<NatronEngine.Param.setVisible>` (visible)
-- def :meth:`setVisibleByDefault<NatronEngine.Param.setVisibleByDefault>` (visible)
-- def :meth:`setAsAlias<NatronEngine.Param.setAsAlias>` (otherParam)
-- def :meth:`slaveTo<NatronEngine.Param.slaveTo>` (otherParam, thisDimension, otherDimension)
-- def :meth:`unslave<NatronEngine.Param.unslave>` (dimension)
+- def :meth:`setViewerUILayoutType<NatronEngine.Param.setViewerUILayoutType>` (type)
+- def :meth:`setViewerUIItemSpacing<NatronEngine.Param.setViewerUIItemSpacing>` (spacingPx)
+- def :meth:`setViewerUIIconFilePath<NatronEngine.Param.setViewerUIIconFilePath>` (filePath[, checked])
+- def :meth:`setViewerUILabel<NatronEngine.Param.setViewerUILabel>` (label)
+- def :meth:`setViewerUIVisible<NatronEngine.Param.setViewerUIVisible>` (visible)
+- def :meth:`linkTo<NatronEngine.Param.linkTo>` (otherParam[, thisDimension=-1, otherDimension=-1, thisView="All", otherView="All")
+- def :meth:`unlink<NatronEngine.Param.unlink>` ([dimension=-1,view="All"])
 
-.. _paramdetails:
+.. _details:
 
 Detailed Description
 --------------------
@@ -64,7 +80,14 @@ In this base class, all common functionalities for parameters have been gathered
     Note that since each child class has a different value type, all the functions to set/get values, and set/get keyframes
     are specific for each class.
 
-A Param can have several functions to control some properties, namely:
+Note that most of the functions in the API of Params take a *dimension* parameter.
+This is a 0-based index of the dimension on which to operate. For instance the dimension 0
+of a RGB color parameter is the red value.
+
+Various properties controls the parameter regarding its animation or its layout or other
+things.
+Some properties are listed here, but the list is not complete. Refer to the reference on each
+parameter type for all accessible properties.
 
     * addNewLine:   When True, the next parameter declared will be on the same line as this parameter
 
@@ -72,105 +95,42 @@ A Param can have several functions to control some properties, namely:
 
     * animationEnabled: For all parameters that have canAnimate=True, this property controls whether this parameter should be able to animate (= have keyframes) or not
 
-    * evaluateOnChange: This property controls whether a new render should be issues when the value of this parameter changes
+    * evaluateOnChange: This property controls whether a new render should be issued when the value of this parameter changes
 
     * help: This is the tooltip visible when hovering the parameter with the mouse
 
-    * enabled: Should this parameter be editable by the user or not. Generally, disabled parameters have their text in painted in black.
+    * enabled: Should this parameter be editable by the user or not. Generally, disabled parameters have their text drawn in black.
 
     * visible: Should this parameter be visible in the user interface or not
 
-    * persistant: If true then the parameter value will be saved in the project
-
-    * dimension: How many dimensions this parameter has. For instance a :doc:`Double3DParam` has 3 dimensions. A :doc:`ParametricParam` has as many dimensions as there are curves.
-
-Note that most of the functions in the API of Params take a *dimension* parameter. This is a 0-based index of the dimension on which to operate.
+    * persistent: If true then the parameter value will be saved in the project otherwise it will be forgotten between 2 runs
 
 
-The following table sums up the different properties for all parameters including type-specific properties not listed above.
 
-
-Note that  most of the properties are not dynamic:
-they need to be set before calling :func:`refreshUserParamsGUI()<NatronEngine.Effect.refreshUserParamsGUI>` which will create the GUI for these parameters.
-
-.. warning::
-
-    A non-dynamic property can no longer be changed once refreshUserParamsGUI() has been called.
+Note that  most of the properties are not dynamic and only work for user created parameters.
+If calling any setter/getter associated to these properties, nothing will change right away.
+A call to :func:`refreshUserParamsGUI()<NatronEngine.Effect.refreshUserParamsGUI>` is needed to refresh the GUI for these parameters.
 
 For non *user-parameters* (i.e: parameters that were defined by the underlying OpenFX plug-in), only
 their **dynamic** properties can be changed since  :func:`refreshUserParamsGUI()<NatronEngine.Effect.refreshUserParamsGUI>`
 will only refresh user parameters.
 
-If a Setter function contains a (*) that means it can only be called for user parameters,
-it has no effect on already declared non-user parameters.
+
+The following dynamic properties can be set on all parameters (non user and user):
 
 +-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
 | Name:             | Type:        |   Dynamic:   |         Setter:                | Getter:              | Default:              |
 +===================+==============+==============+================================+======================+=======================+
-| name              | string       |   no         |         None                   | getScriptName        | ""                    |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-| label             | string       |   no         |         None                   | getLabel             | ""                    |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-| help              | string       |   yes        |         setHelp(*)             | getHelp              | ""                    |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-| addNewLine        | bool         |   no         |         setAddNewLine(*)       | getAddNewLine        | True                  |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-| persistent        | bool         |   yes        |         setPersistant(*)       | getIsPersistant      | True                  |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-| evaluatesOnChange | bool         |   yes        |         setEvaluateOnChange(*) | getEvaluateOnChange  | True                  |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-| animates          | bool         |   no         |         setAnimationEnabled(*) | getIsAnimationEnabled| See :ref:`(1)<(1)>`   |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
 | visible           | bool         |   yes        |         setVisible             | getIsVisible         | True                  |
 +-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
 | enabled           | bool         |   yes        |         setEnabled             | getIsEnabled         | True                  |
 +-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-|                                                                                                                                 |
-| *Properties on IntParam, Int2DParam, Int3DParam, DoubleParam, Double2DParam, Double3DParam, ColorParam only:*                   |
-|                                                                                                                                 |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-| min               | int/double   |   yes        |         setMinimum(*)          |  getMinimum          |  INT_MIN              |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-| max               | int/double   |   yes        |         setMaximum(*)          |  getMaximum          |  INT_MAX              |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-| displayMin        | int/double   |   yes        |         setDisplayMinimum(*)   |  getDisplayMinimum   |  INT_MIN              |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-| displayMax        | int/double   |   yes        |         setDisplayMaximum(*)   |  getDisplayMaximum   |  INT_MAX              |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-|                                                                                                                                 |
-| *Properties on ChoiceParam only:*                                                                                               |
-|                                                                                                                                 |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-| options           | list<string> |   yes        |         setOptions/addOption(*)|  getOption           |  empty list           |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-|                                                                                                                                 |
-| *Properties on FileParam, OutputFileParam only:*                                                                                |
-|                                                                                                                                 |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-| sequenceDialog    | bool         |   yes        |         setSequenceEnabled(*)  |  None                |  False                |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-|                                                                                                                                 |
-| *Properties on StringParam only:*                                                                                               |
-|                                                                                                                                 |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-| type              | TypeEnum     |   no         |         setType(*)             |  None                |  eStringTypeDefault   |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-|                                                                                                                                 |
-| *Properties on PathParam only:*                                                                                                 |
-|                                                                                                                                 |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-| multiPathTable    | bool         |   no         |         setAsMultiPathTable(*) |  None                |  False                |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-|                                                                                                                                 |
-| *Properties on GroupParam only:*                                                                                                |
-|                                                                                                                                 |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
-| isTab             | bool         |   no         |         setAsTab(*)            |  None                |   False               |
-+-------------------+--------------+--------------+--------------------------------+----------------------+-----------------------+
 
-   .. _(1):
 
-    (1): animates is set to True by default only if it is one of the following parameters:
+
+    .. note::
+
+     animates is set to True by default only if it is one of the following parameters:
     IntParam Int2DParam Int3DParam
     DoubleParam Double2DParam Double3DParam
     ColorParam
@@ -179,9 +139,37 @@ it has no effect on already declared non-user parameters.
     PathParam cannot animate at all.
 
 
+Parameter in-viewer interface
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In Natron, each :ref:`Effect<Effect>` may have an interface in the Viewer, like the Roto or Tracker
+nodes have.
+
+You may add parameters on the viewer UI for any Effect as well as edit it. This also apply
+to the Viewer node UI as well, so one can completely customize the Viewer toolbars. The user
+ guide covers in detail how to customize the Viewer UI for an Effect.
+
+To add a parameter to the Viewer UI of an Effect, use the function :func:`insertParamInViewerUI(parameter, index)<NatronEngine.Effect.insertParamInViewerUI>`.
+You may then control its layout, using the :func:`setViewerUILayoutType(type)<NatronEngine.Param.setViewerUILayoutType>` function and the spacing
+between parameters in pixels with :func:`setViewerUIItemSpacing(spacingPx)<NatronEngine.Param.setViewerUIItemSpacing>`.
+You may set the text label or icon of the parameter specifically in the viewer UI by calling
+:func:`setViewerUIIconFilePath(filePath,checked)<NatronEngine.Param.setViewerUIIconFilePath>`
+and :func:`setViewerUILabel(label)<NatronEngine.Param.setViewerUILabel>`.
+
+
 Member functions description
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+.. method:: NatronEngine.Param.beginChanges()
+
+    This can be called before making heavy changes to a parameter, such as setting thousands
+    of keyframes. This call prevent the parameter from doing the following:
+    - Trigger a new render when changed
+    - Call the paramChanged callback when changed
+    - Adjusting the folded/expanded state automatically for multi-dimensional parameters.
+
+    Make sure to call the corresponding :func:`endChanges()<NatronEngine.Param.endChanges>`
+    function when done
 
 .. method:: NatronEngine.Param.copy(other [, dimension=-1])
 
@@ -211,18 +199,26 @@ be copied.
 This function returns **True** upon success and **False** otherwise.
 
 
-.. method:: NatronEngine.Param.curve(time [, dimension=-1])
+.. method:: NatronEngine.Param.curve(time [, dimension=-1, view="Main"])
 
     :param time: :class:`float<PySide.QtCore.float>`
     :param dimension: :class:`int`
+    :param view: :class:`str<PySide.QtCore.QString>`
     :rtype: :class:`float<PySide.QtCore.float>`
 
     If this parameter has an animation curve on the given *dimension*, then the value of
     that curve at the given *time* is returned. If the parameter has an expression on top
-    of the animation curve, the expression will be ignored, ie.g. the value of the animation
+    of the animation curve, the expression will be ignored, ie.g: the value of the animation
     curve will still be returned.
     This is useful to write custom expressions for motion design such as looping, reversing, etc...
 
+.. method:: NatronEngine.Param.endChanges()
+
+    To be called when finished making heavy changes to a parameter, such as setting thousands
+    of keyframes.
+
+    A call to endChanges should always match a corresponding previous call to :func:`beginChanges()<NatronEngine.Param.beginChanges>`
+    Note that they can be nested.
 
 .. method:: NatronEngine.Param.getAddNewLine()
 
@@ -280,24 +276,24 @@ parameter *can animate*.
 
 
 
-.. method:: NatronEngine.Param.getIsEnabled([dimension=0])
-
-
-    :param dimension: :class:`int<PySide.QtCore.int>`
-    :rtype: :class:`bool<PySide.QtCore.bool>`
-
-Returns whether the given *dimension* is enabled or not.
-
-
-
-
-.. method:: NatronEngine.Param.getIsPersistant()
+.. method:: NatronEngine.Param.getIsEnabled()
 
 
     :rtype: :class:`bool<PySide.QtCore.bool>`
 
-Returns whether this parameter should be persistant in the project or not.
-Non-persistant parameter will not have their value saved when saving a project.
+Returns whether parameter is enabled or not.
+When disabled the parameter cannot be edited from the user interface, however it can
+still be edited from the Python A.P.I.
+
+
+
+.. method:: NatronEngine.Param.getIsPersistent()
+
+
+    :rtype: :class:`bool<PySide.QtCore.bool>`
+
+Returns whether this parameter should be persistent in the project or not.
+Non-persistent parameter will not have their value saved when saving a project.
 
 
 
@@ -344,6 +340,36 @@ If this param is within a :doc:`group<GroupParam>`, then the parent will be the 
 Otherwise the param's parent will be the:doc:`page<PageParam>` onto which the param
 appears in the settings panel.
 
+.. method:: NatronEngine.Param.getParentEffect()
+
+
+    :rtype: :class:`NatronEngine.Effect`
+
+     If the holder of this parameter is an effect, this is the effect.
+     If the holder of this parameter is a table item, this will return the effect holding the item
+     itself.
+
+
+.. method:: NatronEngine.Param.getParentItemBase()
+
+
+    :rtype: :class:`NatronEngine.ItemBase`
+
+     If the holder of this parameter is a table item, this is the table item.
+
+
+
+ .. method:: NatronEngine.Param.getApp()
+
+
+    :rtype: :class:`NatronEngine.App`
+
+     If the holder of this parameter is the app itself (so it is a project setting), this is
+     the app object.
+     If the holder of this parameter is an effect, this is the application object containing
+     the effect.
+     If the holder of this parameter is a table item, this will return the application
+     containing the effect holding the item itself.
 
 
 
@@ -366,6 +392,57 @@ the *label* and the *script name*
     :rtype: :class:`str<NatronEngine.std::string>`
 
 Returns the type-name of the parameter.
+
+.. method:: NatronEngine.Param.getViewerUILayoutType ()
+
+    :rtype: :class:`ViewerContextLayoutTypeEnum<NatronEngine.Natron.ViewerContextLayoutTypeEnum>`
+
+
+    Returns the layout type of this parameter if it is present in the viewer interface of the Effect holding it.
+
+.. method:: NatronEngine.Param.getViewerUIItemSpacing ()
+
+    :rtype: :class:`int<PySide.QtCore.int>`
+
+
+    Returns the item spacing after this parameter if it is present in the viewer interface of the Effect holding it.
+
+.. method:: NatronEngine.Param.getViewerUIIconFilePath ([checked=False])
+
+    :param checked: :class:`bool<PySide.QtCore.bool>
+    :rtype: :class:`str<NatronEngine.std::string>`
+
+    Returns the icon file path of this parameter if it is present in the viewer interface of the Effect holding it.
+    For buttons, if checked it false, the icon will be used when the button is unchecked, if checked it will be used
+    when the button is checked.
+
+.. method:: NatronEngine.Param.getHasViewerUI ()
+
+    :rtype: :class:`bool<PySide.QtCore.bool>
+
+    Returns whether this parameter has an interface in the Viewer UI of it's holding Effect.
+
+.. method:: NatronEngine.Param.getViewerUIVisible ()
+
+    :rtype: :class:`bool<PySide.QtCore.bool>
+
+    Returns whether this parameter is visible in the Viewer UI. Only valid for parameters with a viewer ui
+
+
+.. method:: NatronEngine.Param.getViewerUILabel ()
+
+    :rtype: :class:`str<NatronEngine.std::string>`
+
+    Returns the label of this parameter if it is present in the viewer interface of the Effect holding it.
+
+
+.. method:: NatronEngine.Param.isExpressionCacheEnabled ()
+
+    :rtype: :class:`bool<PySide.QtCore.bool>
+
+    Returns whether caching of expression results is enabled for this knob.
+    By default this is enabled, it can be disabled with :func:`setExpressionCacheEnabled(False)<NatronEngine.Param.setExpressionCacheEnabled>`
+
 
 
 .. method:: NatronEngine.Param.random([min=0., max=1.])
@@ -448,25 +525,15 @@ See :func:`getIsAnimationEnabled()<NatronEngine.Param.getIsAnimationEnabled>`
 
 
 
-.. method:: NatronEngine.Param.setEnabled(enabled[, dimension=0])
+.. method:: NatronEngine.Param.setEnabled(enabled)
 
 
     :param enabled: :class:`bool<PySide.QtCore.bool>`
-    :param dimension: :class:`int<PySide.QtCore.int>`
 
-Set whether the given *dimension* of the parameter should be enabled or not.
+Set whether the parameter should be enabled or not.
 When disabled, the parameter will be displayed in black and the user will not be able
 to edit it.
 See :func:`getIsEnabled(dimension)<NatronEngine.Param.getIsEnabled>`
-
-.. method:: NatronEngine.Param.setEnabledByDefault(enabled)
-
-
-    :param enabled: :class:`bool<PySide.QtCore.bool>`
-
-Set whether the parameter should be enabled or not by default.
-When disabled, the parameter will be displayed in black and the user will not be able
-to edit it.
 
 
 .. method:: NatronEngine.Param.setEvaluateOnChange(eval)
@@ -479,16 +546,26 @@ function that change the value of the parameter will trigger a new render.
 See :func:`getEvaluateOnChange()<NatronEngine.Param.getEvaluateOnChange>`
 
 
-.. method:: NatronEngine.Param.setIconFilePath(icon)
+.. method:: NatronEngine.Param.setIconFilePath(icon [,checked])
 
 
     :param icon: :class:`str<NatronEngine.std::string>`
+    :param checked: :class:`bool<PySide.QtCore.bool>`
 
 Set here the icon file path for the label. This should be either an absolute path or
 a file-path relative to a path in the NATRON_PLUGIN_PATH. The icon will replace the
-label of the parameter.
+label of the parameter. If this parameter is a :ref:`ButtonParam<ButtonParam>` then
+if *checked* is *True* the icon will be used when the button is down. Similarily if
+*checked* is *False* the icon will be used when the button is up.
 
 
+.. method:: NatronEngine.Param.setLabel(label)
+
+
+    :param label: :class:`str<NatronEngine.std::string>`
+
+Set the label of the parameter as visible in the GUI
+See :func:`getLabel()<NatronEngine.Param.getLabel>`
 
 
 
@@ -501,14 +578,14 @@ Set the help tooltip of the parameter.
 See :func:`getHelp()<NatronEngine.Param.getHelp>`
 
 
-.. method:: NatronEngine.Param.setPersistant(persistant)
+.. method:: NatronEngine.Param.setPersistent(persistent)
 
 
-    :param persistant: :class:`bool<PySide.QtCore.bool>`
+    :param persistent: :class:`bool<PySide.QtCore.bool>`
 
-Set whether this parameter should be persistant or not.
-Non persistant parameter will not be saved in the project.
-See :func:`getIsPersistant<NatronEngine.Param.getIsPersistant>`
+Set whether this parameter should be persistent or not.
+Non persistent parameter will not be saved in the project.
+See :func:`getIsPersistent<NatronEngine.Param.getIsPersistent>`
 
 
 
@@ -521,52 +598,96 @@ See :func:`getIsPersistant<NatronEngine.Param.getIsPersistant>`
 Set whether this parameter should be visible or not to the user.
 See :func:`getIsVisible()<NatronEngine.Param.getIsVisible>`
 
-.. method:: NatronEngine.Param.setVisibleByDefault(visible)
 
+.. method:: NatronEngine.Param.setViewerUILayoutType (type)
+
+    :param type: :class:`NatronEngine.Natron.ViewerContextLayoutTypeEnum<NatronEngine.Natron.ViewerContextLayoutTypeEnum>`
+
+
+    Set the layout type of this parameter if it is present in the viewer interface of the Effect holding it.
+
+.. method:: NatronEngine.Param.setViewerUIItemSpacing (spacing)
+
+    :param spacing: :class:`int<PySide.QtCore.int>`
+
+
+    Set the item spacing after this parameter if it is present in the viewer interface of the Effect holding it.
+
+.. method:: NatronEngine.Param.setViewerUIIconFilePath (filePath[,checked=False])
+
+
+    :param filePath: :class:`str<NatronEngine.std::string>`
+    :param checked: :class:`bool<PySide.QtCore.bool>`
+
+    Set the icon file path of this parameter if it is present in the viewer interface of the Effect holding it.
+    For buttons, if checked it false, the icon will be used when the button is unchecked, if checked it will be used
+    when the button is checked.
+    This function only has an effect on user created parameters.
+
+
+.. method:: NatronEngine.Param.setViewerUILabel (label)
+
+    :param label: :class:`str<NatronEngine.std::string>`
+
+    Set the label of this parameter if it is present in the viewer interface of the Effect holding it.
+    This function only has an effect on user created parameters.
+
+
+.. method:: NatronEngine.Param.setViewerUIVisible (visible)
 
     :param visible: :class:`bool<PySide.QtCore.bool>`
 
-Set whether this parameter should be visible or not to the user in its default state.
+    Set this parameter visible or not in the Viewer UI. Only valid for parameters for which
+    the function :func:`getHasViewerUI()<NatronEngine.Param.getHasViewerUI>` returns *True*.
 
 
-.. method:: NatronEngine.Param.setAsAlias(otherParam)
+.. method:: NatronEngine.Param.setExpressionCacheEnabled (enabled)
 
-    :param otherParam: :class:`Param<NatronEngine.Param>`
-    :rtype: :class:`bool<PySide.QtCore.bool>`
+    :param enabled: :class:`bool<PySide.QtCore.bool>`
 
-
-Set this parameter as an alias of *otherParam*.
-They need to be both of the same *type* and of the same *dimension*.
-This parameter will control *otherParam* entirely and in case of a choice param, its
-drop-down menu will be updated whenever the *otherParam* menu is updated.
-
-This is used generally to make user parameters on groups with the "Pick" option of the
-"Manage User Parameters" dialog.
+    Set whether caching of expression results is enabled. By default this is True.
+    This can be turned off if an expression is set on a parameter but the expression depends
+    on external data (other than parameter values, such as a file on disk).
+    These external data would be unknown from Natron hence the expression cache would never
+    invalidate.
 
 
-.. method:: NatronEngine.Param.slaveTo(otherParam, thisDimension, otherDimension)
+.. method:: NatronEngine.Param.linkTo(otherParam[, thisDimension=-1, otherDimension=-1,thisView="All",otherView="All"])
 
     :param otherParam: :class:`Param<NatronEngine.Param>`
     :param thisDimension: :class:`int<PySide.QtCore.int>`
     :param otherDimension: :class:`int<PySide.QtCore.int>`
+    :param thisView: :class:`str<PySide.QtCore.QString>`
+    :param otherView: :class:`str<PySide.QtCore.QString>`
     :rtype: :class:`bool<PySide.QtCore.bool>`
 
-Set this parameter as a slave of *otherParam*.
+This parameter will share the value of *otherParam*.
 They need to be both of the same *type* but may vary in dimension, as long as
 *thisDimension* is valid according to the number of dimensions of this parameter and
 *otherDimension* is valid according to the number of dimensions of *otherParam*.
+If *thisDimension* is -1 then it is expected that *otherDimension* is also -1 indicating
+that all dimensions should respectively be slaved.
+
+If this parameter has split views, then only view(s) specified by *thisView* will be slaved
+to the *otherView* of the other parameter.
+If *thisView* is "All" then it is expected that *otherView* is also "All" indicating that all
+views should be respectively slaved. If not set to "All" then the view parameters should
+name valid views in the project settings.
+
 
 This parameter *thisDimension* will be controlled entirely by the *otherDimension* of
-*otherParam* until a call to :func:`unslave(thisDimension)<NatronEngine.Param.unslave>` is made
+*otherParam* until a call to :func:`unlink(thisDimension)<NatronEngine.Param.unlink>` is made
 
-.. method:: NatronEngine.Param.unslave(dimension)
+.. method:: NatronEngine.Param.unlink([dimension=-1,view="All"])
 
     :param dimension: :class:`int<PySide.QtCore.int>`
+    :param view: :class:`str<PySide.QtCore.QString>`
 
-
-If the given *dimension* of this parameter was previously slaved, then this function will
-remove the link between parameters, and the user will be free again to use this parameter
-as any other.
+If the given *dimension* of this parameter was previously linked, then this function will
+remove the link and the value will no longer be shared with any other parameters.
+If *dimension* equals -1 then all dimensions will be unlinked.
+If *view* is set to "All" then all views will be unlinked, otherwise it should
+name valid views in the project settings.
 
 .. note::
 

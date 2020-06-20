@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -165,7 +166,7 @@ QString
 printAsRAM(U64 bytes)
 {
     // According to the Si standard KB is 1000 bytes, KiB is 1024
-    // but on windows sizes are calulated by dividing by 1024 so we do what they do.
+    // but on windows sizes are calculated by dividing by 1024 so we do what they do.
     const U64 kb = 1024;
     const U64 mb = 1024 * kb;
     const U64 gb = 1024 * mb;

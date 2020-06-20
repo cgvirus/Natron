@@ -15,9 +15,7 @@ Functions
 
 - def :meth:`__getitem__<NatronEngine.ColorTuple.__getitem__>` (arg__1)
 
-
 .. class:: ColorTuple()
-
 
 .. attribute:: NatronEngine.ColorTuple.g
 

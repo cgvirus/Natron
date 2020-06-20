@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,6 +39,7 @@
 #include "Global/FloatingPointExceptions.h"
 #endif
 #include "Engine/AppManager.h"
+#include "Engine/Cache.h"
 
 //This will check every X ms whether the crash reporter process still exist when
 //Natron was spawned from the crash reporter process
@@ -47,6 +49,90 @@
 #define NATRON_BREAKPAD_WAIT_FOR_CRASH_REPORTER_ACK_MS 5000
 
 NATRON_NAMESPACE_ENTER
+
+struct MappedProcessWatcherThreadPrivate
+{
+    mutable QMutex mustQuitMutex;
+    bool mustQuit;
+    QWaitCondition mustQuitCond;
+    CacheBasePtr cache;
+
+    MappedProcessWatcherThreadPrivate()
+    : mustQuitMutex()
+    , mustQuit(false)
+    , mustQuitCond()
+    {
+    }
+};
+
+MappedProcessWatcherThread::MappedProcessWatcherThread()
+: QThread()
+, _imp( new MappedProcessWatcherThreadPrivate() )
+{
+    setObjectName( QString::fromUtf8("MappedProcessWatcherThread") );
+}
+
+MappedProcessWatcherThread::~MappedProcessWatcherThread()
+{
+}
+
+void
+MappedProcessWatcherThread::quitThread()
+{
+    if ( !isRunning() ) {
+        return;
+    }
+    {
+        QMutexLocker k(&_imp->mustQuitMutex);
+        assert(!_imp->mustQuit);
+        _imp->mustQuit = true;
+        while (_imp->mustQuit) {
+            _imp->mustQuitCond.wait(&_imp->mustQuitMutex);
+        }
+    }
+    wait();
+}
+
+void
+MappedProcessWatcherThread::startWatching()
+{
+    _imp->cache = appPTR->getTileCache();
+    if (!_imp->cache->isPersistent()) {
+        return;
+    }
+    if (isRunning()) {
+        return;
+    }
+    start();
+}
+
+void
+MappedProcessWatcherThread::run()
+{
+#ifdef DEBUG
+    boost_adaptbx::floating_point::exception_trapping trap(boost_adaptbx::floating_point::exception_trapping::division_by_zero |
+                                                           boost_adaptbx::floating_point::exception_trapping::invalid |
+                                                           boost_adaptbx::floating_point::exception_trapping::overflow);
+#endif
+    for (;;) {
+        {
+            QMutexLocker k(&_imp->mustQuitMutex);
+            if (_imp->mustQuit) {
+                _imp->mustQuit = false;
+                _imp->mustQuitCond.wakeOne();
+
+                return;
+            }
+        }
+
+
+        //Sleep until we need to check again
+        msleep(NATRON_BREAKPAD_CHECK_FOR_CRASH_REPORTER_EXISTENCE_MS);
+
+        _imp->cache->cleanupMappedProcessList();
+    }
+}
+
 
 struct ExistenceCheckerThreadPrivate
 {
@@ -160,7 +246,7 @@ ExistenceCheckerThread::run()
             if (!receivedAcknowledgement) {
                 std::cerr << tr("Crash reporter process does not seem to be responding anymore. This pipe %1 might be used somewhere else.").arg(_imp->comServerPipePath).toStdString() << std::endl;
                 /*
-                   We did not receive te acknowledgement, hence quit
+                   We did not receive the acknowledgement, hence quit
                  */
                 Q_EMIT otherProcessUnreachable();
 

@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -44,13 +45,20 @@ GCC_DIAG_SUGGEST_OVERRIDE_OFF
     Q_OBJECT
 GCC_DIAG_SUGGEST_OVERRIDE_ON
 
-public:
+private: // derives from NodeGui
+    // TODO: enable_shared_from_this
+    // constructors should be privatized in any class that derives from boost::enable_shared_from_this<>
 
     BackdropGui(QGraphicsItem* parent = 0);
 
+public:
+    static NodeGuiPtr create(QGraphicsItem *parent = 0) WARN_UNUSED_RETURN
+    {
+        return NodeGuiPtr( new BackdropGui(parent) );
+    }
+
     virtual ~BackdropGui();
 
-    void refreshTextLabelFromKnob();
 
 public Q_SLOTS:
 
@@ -83,6 +91,14 @@ private:
 private:
     boost::scoped_ptr<BackdropGuiPrivate> _imp;
 };
+
+
+inline BackdropGuiPtr
+toBackdropGui(const NodeGuiIPtr& nodeGui)
+{
+    return boost::dynamic_pointer_cast<BackdropGui>(nodeGui);
+}
+
 
 NATRON_NAMESPACE_EXIT
 

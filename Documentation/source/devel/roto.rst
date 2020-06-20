@@ -10,12 +10,7 @@ as an attribute of the roto node::
 
     app.Roto1.roto
 
-All the objects hierarchy in the :ref:`Roto<Roto>` object is broken up in 2 classes:
-
-    * :ref:`BezierCurve<BezierCurve>`: This class represents a single bezier, may it be an ellipse, rectangle or bezier.
-    * :ref:`Layer<Layer>` : This is a container for BezierCurves and Layers
-
-:ref:`Beziers<BezierCurve>` and :ref:`layers<Layer>` can be accessed via their script-name directly::
+:ref:`Beziers<BezierCurve>` and :ref:`layers<ItemBase>` can be accessed via their script-name directly::
 
     app.Roto1.roto.Layer1.Bezier1
 

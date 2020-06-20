@@ -436,6 +436,7 @@ NATRON_DLL=(
     libidn2-0.dll
     libintl-8.dll
     liblzma-5.dll
+    libmfx-1.dll
     libmodplug-1.dll
     libmp3lame-0.dll
     libnettle-6.dll
@@ -456,6 +457,7 @@ NATRON_DLL=(
     librtmp-1.dll
     libsnappy.dll
     libspeex-1.dll
+    libsrt.dll
     libstdc++-6.dll
     libtasn1-6.dll
     libtheoradec-1.dll
@@ -632,7 +634,7 @@ if [ "${BUNDLE_ARENA:-}" = "1" ]; then
         librevenge-stream-0.0.dll
         libzip.dll
     )
-    # note: check that poppler doesnt depend on nss3
+    # note: check that poppler doesn't depend on nss3
     if ldd "$SDK_HOME/bin/libpoppler-${poppler_version}.dll" | fgrep nss3.dll; then
         echo "Error: poppler was built with NSS3 support:"
         ldd "$SDK_HOME/bin/libpoppler-${poppler_version}.dll"
@@ -795,7 +797,7 @@ fi
 #    for depend in "${IO_DLL[@]}"; do
 #        echo "<file name=\"${depend}\"></file>" >> $IO_MANIFEST
 #    done
-#    #OpenColorIO and SeExpr are located in /lib and not /bin thats why they are not in $IO_DLL
+#    #OpenColorIO and SeExpr are located in /lib and not /bin that's why they are not in $IO_DLL
 #    echo "<file name=\"LIBOPENCOLORIO.DLL\"></file>" >> $IO_MANIFEST
 #    echo "<file name=\"LIBSEEXPR.DLL\"></file>" >> $IO_MANIFEST
 #    echo "</assembly>" >> $IO_MANIFEST
@@ -812,7 +814,7 @@ if [ "${BUNDLE_ARENA:-}" = "1" ]; then
     for depend in "${ARENA_DLL[@]}"; do
         echo "<file name=\"${depend}\"></file>" >> "$ARENA_MANIFEST"
     done
-    #OpenColorIO is located in /lib and not /bin thats why they are not in $IO_DLL
+    #OpenColorIO is located in /lib and not /bin that's why they are not in $IO_DLL
 #    echo "<file name=\"LIBOPENCOLORIO.DLL\"></file>" >> "$ARENA_MANIFEST"
     echo "</assembly>" >> "$ARENA_MANIFEST"
     cd "$OFX_ARENA_PATH/data/Plugins/OFX/Natron/Arena.ofx.bundle/Contents/Win${BITS}"

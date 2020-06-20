@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -101,7 +102,7 @@ getSplitPath(const QString& path)
 
 struct FileSystemModelPrivate
 {
-    FileSystemModel* _publicInterface;
+    FileSystemModel* _publicInterface; // can not be a smart ptr
     SortableViewI* view;
 
     ///A background thread that fetches info about the file-system and reports when done
@@ -175,8 +176,8 @@ generateChildAbsoluteName(FileSystemItem* parent,
 
 struct FileSystemItemPrivate
 {
-    FileSystemModelWPtr model;
-    FileSystemItemWPtr parent;
+    boost::weak_ptr<FileSystemModel> model;
+    boost::weak_ptr<FileSystemItem> parent;
     std::vector<FileSystemItemPtr> children; ///vector for random access
     QMutex childrenMutex;
     bool isDir;
@@ -266,17 +267,19 @@ struct FileSystemItem::MakeSharedEnabler: public FileSystemItem
 
 
 FileSystemItemPtr
-FileSystemItem::create( const FileSystemModelPtr& model,
-                                         bool isDir,
-                                         const QString& filename,
-                                         const QString& userFriendlySequenceName,
-                                         const SequenceParsing::SequenceFromFilesPtr& sequence,
-                                         const QDateTime& dateModified,
-                                         quint64 size,
-                                         const FileSystemItemPtr& parent)
+FileSystemItem::create(const FileSystemModelPtr& model,
+                       bool isDir,
+                       const QString& filename,
+                       const QString& userFriendlySequenceName,
+                       const SequenceParsing::SequenceFromFilesPtr& sequence,
+                       const QDateTime& dateModified,
+                       quint64 size,
+                       const FileSystemItemPtr& parent)
 {
     return boost::make_shared<FileSystemItem::MakeSharedEnabler>(model, isDir, filename, userFriendlySequenceName, sequence, dateModified, size, parent);
 }
+
+
 FileSystemItem::~FileSystemItem()
 {
     FileSystemModelPtr model = _imp->model.lock();
@@ -435,14 +438,14 @@ FileSystemItem::addChild(const SequenceParsing::SequenceFromFilesPtr& sequence,
 
 
     ///Create the child
-    FileSystemItemPtr child = boost::make_shared<FileSystemItem::MakeSharedEnabler>( model,
-                                                                                                    isDir,
-                                                                                                    filename,
-                                                                                                    userFriendlyFilename,
-                                                                                                    sequence,
-                                                                                                    info.lastModified(),
-                                                                                                    size,
-                                                                                                    shared_from_this() );
+    FileSystemItemPtr child = create( model,
+                                     isDir,
+                                     filename,
+                                     userFriendlyFilename,
+                                     sequence,
+                                     info.lastModified(),
+                                     size,
+                                     shared_from_this() );
     model->_imp->registerItem(child);
     _imp->children.push_back(child);
 } // FileSystemItem::addChild
@@ -512,7 +515,7 @@ FileSystemModel::initialize(SortableViewI* view)
     resetCompletly(true);
 }
 
-///////////////////////////////////////Overriden from QAbstractItemModel///////////////////////////////////////
+//////////////////////////////////////Overridden from QAbstractItemModel///////////////////////////////////////
 
 
 #ifdef __NATRON_WIN32__
@@ -622,16 +625,28 @@ FileSystemModel::isDriveName(const QString& name)
 #endif
 }
 
-bool
-FileSystemModel::startsWithDriveName(const QString& name)
+static bool startWithDriveName_win(const QString& name)
 {
-#ifdef __NATRON_WIN32__
-
     return name.size() >= 3 && name.at(0).isLetter() && name.at(1) == QLatin1Char(':') && ( name.at(2) == QLatin1Char('/') || name.at(2) == QLatin1Char('\\') );
-#else
+}
 
-    return name.startsWith( QDir::rootPath() );
+static bool startWithDriveName_unix(const QString& name)
+{
+    return name.startsWith( QDir::rootPath());
+}
+
+bool
+FileSystemModel::startsWithDriveName(const QString& name, bool checkAllPlatforms)
+{
+    if (!checkAllPlatforms) {
+#ifdef __NATRON_WIN32__
+        return startWithDriveName_win(name);
+#else
+        return startWithDriveName_unix(name);
 #endif
+    } else {
+        return startWithDriveName_win(name) || startWithDriveName_unix(name);
+    }
 }
 
 QVariant
@@ -1141,6 +1156,7 @@ FileSystemModel::mkdir(const QModelIndex& parent,
     if (item) {
         QDir dir( item->absoluteFilePath() );
         dir.mkpath(name);
+
         FileSystemItemPtr newDir = mkPath( generateChildAbsoluteName(item, name) );
         if (!newDir) {
             return QModelIndex();
@@ -1245,6 +1261,7 @@ void
 FileSystemModel::initGatherer()
 {
     if (!_imp->gatherer) {
+        // scoped_ptr
         _imp->gatherer.reset( new FileGathererThread( shared_from_this() ) );
         assert(_imp->gatherer);
         QObject::connect( _imp->gatherer.get(), SIGNAL(directoryLoaded(QString)), this, SLOT(onDirectoryLoadedByGatherer(QString)) );

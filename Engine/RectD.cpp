@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,7 +31,11 @@
 
 #include "Engine/RectI.h"
 
+#include "Serialization/RectDSerialization.h"
+
+
 NATRON_NAMESPACE_ENTER
+
 
 void
 RectD::toPixelEnclosing(const RenderScale & scale,
@@ -55,5 +60,33 @@ RectD::toPixelEnclosing(unsigned int mipMapLevel,
     rect->x2 = std::ceil(x2 * scale / par);
     rect->y2 = std::ceil(y2 * scale);
 }
+
+
+void
+RectD::toSerialization(SERIALIZATION_NAMESPACE::SerializationObjectBase* obj)
+{
+    SERIALIZATION_NAMESPACE::RectDSerialization* s = dynamic_cast<SERIALIZATION_NAMESPACE::RectDSerialization*>(obj);
+    if (!s) {
+        return;
+    }
+    s->x1 = x1;
+    s->y1 = y1;
+    s->x2 = x2;
+    s->y2 = y2;
+}
+
+void
+RectD::fromSerialization(const SERIALIZATION_NAMESPACE::SerializationObjectBase & obj)
+{
+    const SERIALIZATION_NAMESPACE::RectDSerialization* s = dynamic_cast<const SERIALIZATION_NAMESPACE::RectDSerialization*>(&obj);
+    if (!s) {
+        return;
+    }
+    x1 = s->x1;
+    y1 = s->y1;
+    x2 = s->x2;
+    y2 = s->y2;
+}
+
 
 NATRON_NAMESPACE_EXIT

@@ -6,7 +6,7 @@ App
 
 **Inherits** :doc:`Group`
 
-**Inherited by:** :ref:`GuiApp`
+**Inherited by:** :doc:`../NatronGui/GuiApp`
 
 Synopsis
 --------
@@ -25,8 +25,12 @@ Functions
 - def :meth:`getAppID<NatronEngine.App.getAppID>` ()
 - def :meth:`getProjectParam<NatronEngine.App.getProjectParam>` (name)
 - def :meth:`getViewNames<NatronEngine.App.getViewNames>` ()
+- def :meth:`getViewIndex<NatronEngine.App.getViewIndex>` (viewName)
+- def :meth:`getViewName<NatronEngine.App.getViewName>` (viewIndex)
 - def :meth:`render<NatronEngine.App.render>` (effect,firstFrame,lastFrame[,frameStep])
 - def :meth:`render<NatronEngine.App.render>` (tasks)
+- def :meth:`redrawViewer<NatronEngine.App.redrawViewer>` (viewerNode)
+- def :meth:`refreshViewer<NatronEngine.App.refreshViewer>` (viewerNode [, useCache])
 - def :meth:`saveTempProject<NatronEngine.App.saveTempProject>` (filename)
 - def :meth:`saveProject<NatronEngine.App.saveProject>` (filename)
 - def :meth:`saveProjectAs<NatronEngine.App.saveProjectAs>` (filename)
@@ -260,7 +264,7 @@ Here is an example on how to pass properties to the createNode function::
   the parameter (e.g. int for IntParam, float for FloatParam, bool for BooleanParam, String for StringParam).
 
 
-- *Name*: **CreateNodeArgsPropOutOfProject**
+- *Name*: **CreateNodeArgsPropVolatile**
 
   *Dimension*: 1
 
@@ -268,9 +272,22 @@ Here is an example on how to pass properties to the createNode function::
 
   *Default*: False
 
-  *Description*: When True the node will not be part of the project. The node can be used for internal used, e.g. in a Python script but will
-  not appear to the user. It will also not be saved in the project.
+  *Description*: When True the node will not be part visible and not saved into any project.
+  The node can be used for internal use, e.g in a Python script.
 
+
+- *Name*: **CreateNodeArgsPropPreset**
+
+    *Dimension*: 1
+
+    *Type*: string
+
+    *Default*: None
+
+    *Description*: Indicates the name of the presets to use when loading the node.
+    The preset name must correspond to a valid label of a preset file (.nps) that was found by Natron.
+    The preset name is NOT the filename of the preset file, but the string in the file found next to the key "PresetLabel"
+    If the preset cannot be found, the presets will not be loaded and the node will have its default state.
 
 - *Name*: **CreateNodeArgsPropNoNodeGUI**
 
@@ -280,7 +297,7 @@ Here is an example on how to pass properties to the createNode function::
 
   *Default*: False
 
-  *Description*:  * If True, the node will not have any GUI created. The property CreateNodeArgsPropOutOfProject set to True implies this.
+  *Description*:  * If True, the node will not have any GUI created. The property CreateNodeArgsPropVolatile set to True implies this.
 
 
 - *Name*: **CreateNodeArgsPropSettingsOpened**
@@ -292,7 +309,7 @@ Here is an example on how to pass properties to the createNode function::
   *Default*: False
 
   *Description*:  * If True, the node settings panel will not be opened by default when created.
-  If the property CreateNodeArgsPropNoNodeGUI is set to true or CreateNodeArgsPropOutOfProject
+  If the property CreateNodeArgsPropNoNodeGUI is set to true or CreateNodeArgsPropVolatile
   is set to true, this property has no effet.
 
 
@@ -305,7 +322,7 @@ Here is an example on how to pass properties to the createNode function::
   *Default*: False
 
   *Description*:  * If True, Natron will try to automatically connect the node to others depending on the user selection.
-  If the property CreateNodeArgsPropNoNodeGUI is set to true or CreateNodeArgsPropOutOfProject
+  If the property CreateNodeArgsPropNoNodeGUI is set to true or CreateNodeArgsPropVolatile
   is set to true, this property has no effet.
 
 
@@ -318,7 +335,7 @@ Here is an example on how to pass properties to the createNode function::
   *Default*: False
 
   *Description*:  Natron will push a undo/redo command to the stack when creating this node.
-  If the property CreateNodeArgsPropNoNodeGUI is set to true or CreateNodeArgsPropOutOfProject
+  If the property CreateNodeArgsPropNoNodeGUI is set to true or CreateNodeArgsPropVolatile
   is set to true, this property has no effect.
 
 
@@ -397,6 +414,24 @@ an explanation of *script-name* vs. *label*.
 Returns a sequence with the name of all the views in the project as setup by the user
 in the "Views" tab of the Project Settings.
 
+
+.. method:: NatronEngine.App.getViewIndex (viewName)
+
+    :param viewName: :class:`str<PySide.QtCore.QString>`
+    :rtype: :class:`int<PySide.QtCore.int>`
+
+Return the index in the project settings of the given view.
+Returns -1 if a corresponding view could not be found.
+
+.. method:: NatronEngine.App.getViewName (viewIndex)
+
+    :param viewIndex: :class:`int<PySide.QtCore.int>`
+    :rtype: :class:`str<PySide.QtCore.QString>`
+
+Return the name of the view in the project settings corresponding to the view
+at the given *viewIndex*.
+Returns an empty view name if a corresponding view could not be found.
+
 .. method:: NatronEngine.App.render(effect,firstFrame,lastFrame[,frameStep])
 
 
@@ -446,6 +481,24 @@ multiple writers.
 This is a blocking call only in background mode.
 
 
+.. method:: NatronEngine.App.redrawViewer(viewerNode)
+
+    :param vieweNode: :class:`Effect<Effect>`
+
+Just redraws the OpenGL viewer associated to the given *viewerNode*.
+The internal texture displayed will not be re-evaluated.
+If the node passed in parameter is not a viewer, this function has no effect.
+
+.. method:: NatronEngine.App.refreshViewer(viewerNode [, useCache])
+
+    :param vieweNode: :class:`Effect<Effect>`
+    :param useCache: :class:`bool<PySide.QtCore.bool>`
+
+Refresh the viewer texture. This causes a re-evaluation of the node-graph.
+If *useCache* is set to **True**, the render will not attempt
+to retrieve a texture from the cache if there is any.
+If the node passed in parameter is not a viewer, this function has no effect.
+
 
 .. method:: NatronEngine.App.timelineGetLeftBound()
 
@@ -482,7 +535,7 @@ timeline. If the user seeks a specific frames, then all Viewers will render that
     :param message: :class:`str<NatronEngine.std::string>`
 
 Writes the given *message* to the Script Editor panel of Natron. This can be useful to
-inform the user of various informations, warnings or errors.
+inform the user of various information, warnings or errors.
 
 
 .. method:: NatronEngine.App.saveProject(filename)
@@ -503,7 +556,7 @@ inform the user of various informations, warnings or errors.
     :rtype: :class:`bool<PySide.QtCore.bool>`
 
     Save the project under the given *filename*.
-    In GUI mode, if *filename* is empty, it promps the user where to save the project.
+    In GUI mode, if *filename* is empty, it prompts the user where to save the project.
 
 
     This function returns *True* if it saved successfully, *False* otherwise.

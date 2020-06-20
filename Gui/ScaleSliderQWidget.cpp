@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -79,9 +80,7 @@ struct ScaleSliderQWidgetPrivate
     bool shiftDown;
     double currentZoom;
     ScaleSliderQWidget::DataTypeEnum dataType;
-    bool altered;
-    bool useLineColor;
-    QColor lineColor;
+
     bool allowDraftModeSetting;
 
     ScaleSliderQWidgetPrivate(QWidget* parent,
@@ -93,7 +92,7 @@ struct ScaleSliderQWidgetPrivate
                               ScaleSliderQWidget::DataTypeEnum dataType,
                               ScaleTypeEnum type)
         : gui(gui)
-        , zoomCtx()
+        , zoomCtx( (max-min) * 1e-8, (max-min) * 1e8 )
         , oldClick()
         , minimum(min)
         , maximum(max)
@@ -109,9 +108,6 @@ struct ScaleSliderQWidgetPrivate
         , shiftDown(false)
         , currentZoom(1.)
         , dataType(dataType)
-        , altered(false)
-        , useLineColor(false)
-        , lineColor(Qt::black)
         , allowDraftModeSetting(allowDraftModeSetting)
     {
         font.setPointSize( (font.pointSize() * NATRON_FONT_SIZE_10) / NATRON_FONT_SIZE_13 );
@@ -128,6 +124,7 @@ ScaleSliderQWidget::ScaleSliderQWidget(double min,
                                        ScaleTypeEnum type,
                                        QWidget* parent)
     : QWidget(parent)
+    , StyledKnobWidgetBase()
     , _imp( new ScaleSliderQWidgetPrivate(parent, min, max, initialPos, allowDraftModeSetting, gui, dataType, type) )
 {
     setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
@@ -324,16 +321,9 @@ ScaleSliderQWidget::increment()
 }
 
 void
-ScaleSliderQWidget::setAltered(bool b)
+ScaleSliderQWidget::refreshStylesheet()
 {
-    _imp->altered = b;
     update();
-}
-
-bool
-ScaleSliderQWidget::getAltered() const
-{
-    return _imp->altered;
 }
 
 void
@@ -456,7 +446,7 @@ ScaleSliderQWidget::paintEvent(QPaintEvent* /*e*/)
     style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
 
     double txtR, txtG, txtB;
-    if (_imp->altered) {
+    if (!modified) {
         appPTR->getCurrentSettings()->getAltTextColor(&txtR, &txtG, &txtB);
     } else {
         appPTR->getCurrentSettings()->getTextColor(&txtR, &txtG, &txtB);
@@ -472,11 +462,8 @@ ScaleSliderQWidget::paintEvent(QPaintEvent* /*e*/)
 
     QFontMetrics fontM(_imp->font, 0);
 
-    if (!_imp->useLineColor) {
-        p.setPen(scaleColor);
-    } else {
-        p.setPen(_imp->lineColor);
-    }
+    p.setPen(scaleColor);
+
 
     QPointF btmLeft = _imp->zoomCtx.toZoomCoordinates(0, height() - 1);
     QPointF topRight = _imp->zoomCtx.toZoomCoordinates(width() - 1, 0);
@@ -642,14 +629,7 @@ ScaleSliderQWidget::setReadOnly(bool ro)
     update();
 }
 
-void
-ScaleSliderQWidget::setUseLineColor(bool use,
-                                    const QColor& color)
-{
-    _imp->useLineColor = use;
-    _imp->lineColor = color;
-    update();
-}
+
 
 NATRON_NAMESPACE_EXIT
 

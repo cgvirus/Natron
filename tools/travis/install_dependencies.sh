@@ -45,7 +45,9 @@ if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then
     # see http://stackoverflow.com/questions/11302758/error-while-copy-constructing-boostshared-ptr-using-c11
     ## we used the irie/boost ppa for that purpose
     #sudo add-apt-repository -y ppa:irie/boost
-    if [ `lsb_release -cs` = "trusty" ]; then
+    if [ `lsb_release -cs` = "xenial" ]; then
+        BOOSTVER=1.58
+    elif [ `lsb_release -cs` = "trusty" ]; then
         # samuel-bachmann/boost has a backport of boost 1.60
         sudo add-apt-repository -y ppa:samuel-bachmann/boost
         BOOSTVER=1.60
@@ -57,7 +59,7 @@ if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then
         BOOSTVER=1.55
         sudo add-apt-repository -y ppa:kalakris-cmake
     fi
-    PKGS="$PKGS libboost${BOOSTVER}-dev libboost-math${BOOSTVER}-dev libboost-serialization${BOOSTVER}-dev"
+    PKGS="$PKGS libboost-dev libboost-math-dev libboost-serialization-dev libboost-thread-dev libboost-system-dev"
 
     # the PPA xorg-edgers contains cairo 1.12 (required for rotoscoping)
     sudo add-apt-repository -y ppa:xorg-edgers/ppa
@@ -81,9 +83,13 @@ if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then
     #if [ "$CC" = "$TEST_CC" ]; then sudo add-apt-repository -y ppa:archivematica/externals; fi #2.5.1
     #if [ "$CC" = "$TEST_CC" ]; then sudo add-apt-repository -y ppa:pavlyshko/precise; fi #2.6.1
     if [ "$CC" = "$TEST_CC" ]; then
-        if [ `lsb_release -cs` = "trusty" ]; then
-            sudo add-apt-repository -y ppa:jonathonf/ffmpeg-3; #3.2.4
-        else
+        if [ `lsb_release -cs` = "bionic" ]; then
+            sudo add-apt-repository -y ppa:jonathonf/ffmpeg-4; #4.2.1
+        elif [ `lsb_release -cs` = "xenial" ]; then
+            sudo add-apt-repository -y ppa:jonathonf/ffmpeg-4; #4.1.3
+        elif [ `lsb_release -cs` = "trusty" ]; then
+            sudo add-apt-repository -y ppa:jonathonf/ffmpeg-3; #3.4.4
+        elif [ `lsb_release -cs` = "precise" ]; then
             sudo add-apt-repository -y ppa:spvkgn/ffmpeg-dev; #2.8.6 (on precise)
         fi
     fi
@@ -104,9 +110,12 @@ if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then
     # - ffmpeg
     if [ "$CC" = "$TEST_CC" ]; then
         if [ `lsb_release -cs` = "trusty" ]; then
-            PKGS="$PKGS cmake libtinyxml-dev liblcms2-dev libyaml-cpp-dev libboost${BOOSTVER}-dev libavcodec-dev libavformat-dev libswscale-dev libavutil-dev libswresample-dev"
+            PKGS="$PKGS cmake libtinyxml-dev liblcms2-dev libyaml-cpp-dev libboost${BOOSTVER}-dev libavcodec-dev libavformat-dev libswscale-dev libavutil-dev libswresample-dev libgl-dev"
+        elif [ `lsb_release -cs` = "precise" ]; then
+            PKGS="$PKGS cmake libtinyxml-dev liblcms2-dev libyaml-cpp-dev libboost${BOOSTVER}-dev libavcodec-dev libavformat-dev libswscale-dev libavutil-dev libswresample-dev libgl-dev"
         else
-            PKGS="$PKGS cmake libtinyxml-dev liblcms2-dev libyaml-cpp-dev libboost${BOOSTVER}-dev libavcodec-dev libavformat-dev libswscale-dev libavutil-dev libswresample-dev"
+            # xenial and more recent
+            PKGS="$PKGS cmake libtinyxml-dev liblcms2-dev libyaml-cpp-dev libboost-dev libavcodec-dev libavformat-dev libswscale-dev libavutil-dev libswresample-dev libgl-dev"
         fi
     fi
     # - opencolorio (available as libopencolorio-dev on trusty)
@@ -121,7 +130,8 @@ if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then
     #fi
     # - openimageio
     if [ "$CC" = "$TEST_CC" ]; then
-        PKGS="$PKGS libopenjp2-7-dev libtiff4-dev libjpeg-dev libpng-dev libraw-dev libboost-filesystem${BOOSTVER}-dev libboost-regex${BOOSTVER}-dev libboost-thread${BOOSTVER}-dev libboost-system${BOOSTVER}-dev libwebp-dev libfreetype6-dev libssl-dev"
+        #PKGS="$PKGS libopenjp2-7-dev libtiff-dev libjpeg-dev libpng-dev libraw-dev libboost-filesystem${BOOSTVER}-dev libboost-regex${BOOSTVER}-dev libboost-thread${BOOSTVER}-dev libboost-system${BOOSTVER}-dev libwebp-dev libfreetype6-dev libssl-dev"
+        PKGS="$PKGS libopenjp2-7-dev libtiff-dev libjpeg-dev libpng-dev libraw-dev libboost-filesystem-dev libboost-regex-dev libboost-thread-dev libboost-system-dev libwebp-dev libfreetype6-dev libssl-dev"
     fi
 
 
@@ -136,10 +146,10 @@ if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then
     sudo apt-get install -y --allow-unauthenticated -fm $PKGS
 
 
-    
+
     ################################################################
     # build dependencies that cannot be fetched from apt
-    
+
     # ubuntu-toolchain-r/test contains recent versions of gcc
     if [ "$CC" = "$TEST_CC" ]; then
         sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${GCC_VERSION} 90;
@@ -158,9 +168,9 @@ if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then
         mv libs/OpenFX/Support/Plugins/*/*-64-debug/*.ofx.bundle libs/OpenFX/Support/PropTester/*-64-debug/*.ofx.bundle Tests/Plugins/Support;
         # - opencolorio
         if [ ! -d "$HOME/ocio/lib" ]; then
-            wget https://github.com/imageworks/OpenColorIO/archive/v1.1.0.tar.gz -O /tmp/ocio.tgz;
+            wget https://github.com/imageworks/OpenColorIO/archive/v1.1.1.tar.gz -O /tmp/ocio.tgz;
             tar -xvzf /tmp/ocio.tgz -C $HOME;
-            pushd $HOME/OpenColorIO-1.1.0;
+            pushd $HOME/OpenColorIO-1.1.1;
             find . -name CMakeLists.txt -exec sed -e s/-Werror// -i {} \; ;
             mkdir _build && cd _build;
             cmake -DCMAKE_INSTALL_PREFIX=$HOME/ocio -DCMAKE_BUILD_TYPE=Release -DOCIO_BUILD_JNIGLUE=OFF -DOCIO_BUILD_NUKE=OFF -DOCIO_BUILD_SHARED=ON -DOCIO_BUILD_STATIC=OFF -DOCIO_STATIC_JNIGLUE=OFF -DOCIO_BUILD_TRUELIGHT=OFF -DUSE_EXTERNAL_LCMS=ON -DUSE_EXTERNAL_TINYXML=ON -DUSE_EXTERNAL_YAML=ON -DOCIO_BUILD_APPS=OFF -DOCIO_USE_BOOST_PTR=ON -DOCIO_BUILD_TESTS=OFF -DOCIO_BUILD_PYGLUE=OFF ..;
@@ -173,15 +183,15 @@ if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then
         # OpenEXR
         # see https://github.com/PixarAnimationStudios/USD/blob/master/.travis.yml
         if [ ! -d "$HOME/openexr/lib" ]; then
-            wget http://download.savannah.nongnu.org/releases/openexr/ilmbase-2.2.1.tar.gz -O /tmp/ilmbase.tgz;
+            wget https://github.com/openexr/openexr/releases/download/v2.3.0/ilmbase-2.3.0.tar.gz -O /tmp/ilmbase.tgz;
             tar -xvzf /tmp/ilmbase.tgz -C $HOME;
-            pushd $HOME/ilmbase-2.2.1;
+            pushd $HOME/ilmbase-2.3.0;
             ./configure --prefix=$HOME/openexr;
             make && make install;
             popd;
-            wget http://download.savannah.nongnu.org/releases/openexr/openexr-2.2.1.tar.gz -O /tmp/openexr.tgz;
+            wget https://github.com/openexr/openexr/releases/download/v2.3.0/openexr-2.3.0.tar.gz -O /tmp/openexr.tgz;
             tar -xvzf /tmp/openexr.tgz -C $HOME;
-            pushd $HOME/openexr-2.2.1;
+            pushd $HOME/openexr-2.3.0;
             ./configure --prefix=$HOME/openexr --with-pkg-config=no LDFLAGS="-Wl,-rpath -Wl,$HOME/openexr/lib";
             make $J && make install;
             popd;
@@ -190,11 +200,11 @@ if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then
         fi
         # - openimageio
         if [ ! -d "$HOME/oiio/lib" ]; then
-            wget https://github.com/OpenImageIO/oiio/archive/Release-1.8.8.tar.gz -O /tmp/oiio.tgz;
+            wget https://github.com/OpenImageIO/oiio/archive/Release-2.1.10.0.tar.gz -O /tmp/oiio.tgz;
             tar -xvzf /tmp/oiio.tgz -C $HOME;
-            pushd $HOME/oiio-Release-1.8.8;
+            pushd $HOME/oiio-Release-2.1.10.0;
             mkdir _build && cd _build;
-            cmake -DCMAKE_INSTALL_PREFIX=$HOME/oiio -DILMBASE_HOME=$HOME/openexr -DOPENEXR_HOME=$HOME/openexr -DOCIO_PATH=$HOME/ocio -DUSE_QT=OFF -DUSE_PYTHON=OFF -DUSE_PYTHON3=OFF -DUSE_FIELD3D=OFF -DUSE_FFMPEG=OFF -DUSE_OPENJPEG=ON -DUSE_OCIO=ON -DUSE_OPENCV=OFF -DUSE_OPENSSL=OFF -DUSE_FREETYPE=ON -DUSE_GIF=OFF -DUSE_PTEX=OFF -DUSE_LIBRAW=ON -DOIIO_BUILD_TESTS=OFF -DOIIO_BUILD_TOOLS=OFF -DSTOP_ON_WARNING=OFF ..;
+            cmake -DCMAKE_INSTALL_PREFIX=$HOME/oiio -DILMBASE_ROOT_DIR=$HOME/openexr -DOPENEXR_ROOT_DIR=$HOME/openexr -DOCIO_HOME=$HOME/ocio -DUSE_QT=OFF -DUSE_PYTHON=OFF -DUSE_PYTHON3=OFF -DUSE_FIELD3D=OFF -DUSE_FFMPEG=OFF -DUSE_OPENJPEG=ON -DUSE_OCIO=ON -DUSE_OPENCV=OFF -DUSE_OPENSSL=OFF -DUSE_FREETYPE=ON -DUSE_GIF=OFF -DUSE_PTEX=OFF -DUSE_LIBRAW=ON -DOIIO_BUILD_TESTS=OFF -DOIIO_BUILD_TOOLS=OFF -DSTOP_ON_WARNING=OFF ..;
             make $J && make install;
             popd;
         else
@@ -217,7 +227,8 @@ if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then
 
     # config.pri
     # Ubuntu 12.04 precise doesn't have a pkg-config file for expat (expat.pc)
-    echo 'boost: LIBS += -lboost_serialization' > config.pri
+    echo 'boost: LIBS += -lboost_thread -lboost_system' > config.pri
+    echo 'boost-serialization-lib: LIBS += -lboost_serialization' >> config.pri
     echo 'expat: LIBS += -lexpat' >> config.pri
     echo 'expat: PKGCONFIG -= expat' >> config.pri
     # pyside and shiboken for python3 cannot be configured with pkg-config on Ubuntu 12.04LTS Precise
@@ -230,7 +241,7 @@ if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then
     echo 'pyside: INCLUDEPATH += $$system(env PKG_CONFIG_PATH=$$PYSIDE_PKG_CONFIG_PATH pkg-config --variable=includedir QtGui)' >> config.pri
     #echo 'pyside: LIBS += -lpyside.cpython-32mu' >> config.pri
     echo 'pyside: LIBS += -lpyside-python2.7' >> config.pri
-    # pyside doesn't have PySide::getWrapperForQObject on Ubuntu 12.04LTS Precise 
+    # pyside doesn't have PySide::getWrapperForQObject on Ubuntu 12.04LTS Precise
     echo 'pyside: DEFINES += PYSIDE_OLD' >> config.pri
     #echo 'shiboken: PKGCONFIG -= shiboken' >> config.pri
     #echo 'shiboken: INCLUDEPATH += $$system(pkg-config --variable=includedir shiboken)' >> config.pri
@@ -238,7 +249,7 @@ if [[ ${TRAVIS_OS_NAME} == "linux" ]]; then
 
     IO_BRANCH=master
     . $TRAVIS_BUILD_DIR/Global/plugin-branches.sh
-    
+
     # build OpenFX-IO
     if [ "$CC" = "$TEST_CC" ]; then
         pushd $TRAVIS_BUILD_DIR
@@ -264,7 +275,7 @@ elif [[ ${TRAVIS_OS_NAME} == "osx" ]]; then
     # install_xquartz(){
     #     echo "XQuartz start install"
     #     XQUARTZ_VERSION=2.7.6
-    #     
+    #
     #     echo "XQuartz download"
     #     wget --quiet http://xquartz.macosforge.org/downloads/SL/XQuartz-${XQUARTZ_VERSION}.dmg
     #     echo "XQuartz mount dmg"
@@ -288,9 +299,9 @@ elif [[ ${TRAVIS_OS_NAME} == "osx" ]]; then
     #The formula built, but is not symlinked into /usr/local
     #Could not symlink bin/f2py
     # (see https://travis-ci.org/NatronGitHub/Natron/jobs/504468941)
-    brew install numpy || true
-    brew link --overwrite numpy || true
-    
+    #brew install numpy || true
+    #brew link --overwrite numpy || true
+
     brew outdated xctool || brew upgrade xctool || true
     echo "* Adding brew taps"
     #brew tap homebrew/python # deprecated
@@ -309,12 +320,24 @@ elif [[ ${TRAVIS_OS_NAME} == "osx" ]]; then
     # see https://docs.travis-ci.com/user/reference/osx/#OS-X-Version
     brew tap cartr/qt4
     # Pin qt4, prioritizing its formulae over core when formula names are supplied
-    brew tap-pin cartr/qt4
+    #brew tap-pin cartr/qt4 # obsolete since homebres 2.1.0 https://brew.sh/2019/04/04/homebrew-2.1.0/
     # brew list -1 | while read line; do brew unlink $line; brew link --force $line; done
 
     # Upgrade the essential packages
+    # Python2 is now keg-only
+    brew install python@2
+    brew unlink python@2 || true
+    for p in python; do
+        brew outdated $p || brew upgrade $p
+    done
+    brew unlink python || true
+    brew link python@2 || true
+    PATH="/usr/local/opt/python@2/bin:$PATH"
+    brew link --overwrite python || true
+
+    #(cd /usr/local/bin; ln -s ../opt/python@2/bin/*2* .)
     echo "* Brew upgrade selected packages"
-    for p in boost giflib jpeg libpng libtiff libxml2 openssl pcre python readline sqlite; do
+    for p in boost giflib jpeg libpng libtiff libxml2 openssl pcre readline sqlite; do
         brew outdated $p || brew upgrade $p
     done
     # On Nov. 7 2017, the following caused 49 upgrades.
@@ -323,7 +346,7 @@ elif [[ ${TRAVIS_OS_NAME} == "osx" ]]; then
     #brew upgrade
     echo "* Brew doctor"
     brew doctor || true
-    
+
     echo "* Install Natron dependencies"
     #echo " - pip install numpy" # installed via brew install numpy (see below)
     #pip install --upgrade numpy
@@ -333,7 +356,7 @@ elif [[ ${TRAVIS_OS_NAME} == "osx" ]]; then
     #brew install scons swig ilmbase openexr little-cms2 glew freetype fontconfig ffmpeg imagemagick libcaca aces_container ctl jpeg-turbo libraw seexpr openjpeg opencolorio openimageio
     # Natron's dependencies only
     # install qt-webkit@2.3 if needed
-    brew install qt@4 expat cairo gnu-sed glew
+    brew install cartr/qt4/qt@4 expat cairo gnu-sed glew openssl
     brew install boost
     # pyside/shiboken with python3 support take a long time to compile, see https://github.com/travis-ci/travis-ci/issues/1961
     #brew install pyside --with-python3 --without-python &
@@ -346,15 +369,11 @@ elif [[ ${TRAVIS_OS_NAME} == "osx" ]]; then
     #        break
     #    fi
     #done
-    # Python2 is now keg-only
-    brew install python@2
-    #PATH="/usr/local/opt/python@2/bin:$PATH"
-    #(cd /usr/local/bin; ln -s ../opt/python@2/bin/*2* .)
     # Python 2 pyside comes precompiled!
-    brew install pyside@1.2 shiboken@1.2
+    brew install cartr/qt4/pyside@1.2 cartr/qt4/shiboken@1.2
     if [ "$CC" = "$TEST_CC" ]; then
         # dependencies for building all OpenFX plugins
-        brew install ilmbase openexr freetype fontconfig ffmpeg opencolorio openjpeg libraw openimageio seexpr
+        brew install ilmbase openexr freetype fontconfig ffmpeg opencolorio openjpeg libraw libheif openimageio seexpr openvdb
         # let OIIO work even if the package is not up to date (happened once, when hdf5 was upgraded to 5.10 but oiio was still using 5.9)
         hdf5lib=`otool -L /usr/local/lib/libOpenImageIO.dylib |fgrep hdf5 | awk '{print $1}'`
         if [ "$hdf5lib" -a ! -f "$hdf5lib" ]; then
@@ -376,9 +395,9 @@ elif [[ ${TRAVIS_OS_NAME} == "osx" ]]; then
     echo "*** Shiboken:"
     env PKG_CONFIG_PATH=`python2-config --prefix`/lib/pkgconfig pkg-config --libs shiboken
 
-    # OpenImageIO 1.8 requires c++11
+    # OpenImageIO >= 1.8 requires c++11
     CXX="$CXX -std=c++11"
-    
+
     # OpenFX
     if [ "$CC" = "$TEST_CC" ]; then
         make -C libs/OpenFX/Examples;
@@ -401,7 +420,8 @@ elif [[ ${TRAVIS_OS_NAME} == "osx" ]]; then
     echo "End dependencies installation."
     # config.pri
     echo 'boost: INCLUDEPATH += /usr/local/include' > config.pri
-    echo 'boost: LIBS += -L/usr/local/lib -lboost_serialization-mt -lboost_thread-mt -lboost_system-mt' >> config.pri
+    echo 'boost: LIBS += -L/usr/local/lib -lboost_thread-mt -lboost_system-mt' >> config.pri
+    echo 'boost-serialization-lib: LIBS += -L/usr/local/lib -lboost_serialization-mt' >> config.pri
     echo 'expat: PKGCONFIG -= expat' >> config.pri
     echo 'expat: INCLUDEPATH += /usr/local/opt/expat/include' >> config.pri
     echo 'expat: LIBS += -L/usr/local/opt/expat/lib -lexpat' >> config.pri

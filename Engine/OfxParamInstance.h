@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -53,6 +54,7 @@ CLANG_DIAG_ON(deprecated)
 #include "Engine/KnobTypes.h"
 #include "Engine/ViewIdx.h"
 #include "Engine/EffectInstance.h"
+
 #include "Engine/EngineFwd.h"
 
 NATRON_NAMESPACE_ENTER
@@ -94,7 +96,8 @@ class OfxParamToKnob
     OFX::Host::Interact::Descriptor interactDesc;
     mutable QMutex dynamicPropModifiedMutex;
     int _dynamicPropModified;
-    EffectInstanceWPtr _effect;
+    boost::weak_ptr<EffectInstance> _effect;
+    int _nRefreshAutoKeyingRequests;
 
 public:
 
@@ -103,6 +106,7 @@ public:
         : dynamicPropModifiedMutex()
         , _dynamicPropModified(0)
         , _effect(effect)
+        , _nRefreshAutoKeyingRequests(0)
     {
     }
 
@@ -146,48 +150,63 @@ public:
     }
 
     template <typename TYPE>
-    boost::shared_ptr<TYPE>checkIfKnobExistsWithNameOrCreate(const std::string& scriptName,
-                                                             OFX::Host::Param::Instance* param,
-                                                             int dimension)
+    boost::shared_ptr<TYPE>
+    getOrCreateKnob(const std::string& scriptName,
+                    OFX::Host::Param::Instance* param,
+                    int dimension)
     {
         EffectInstancePtr holder = getKnobHolder();
-
-        assert(holder);
-#ifdef NATRON_ENABLE_IO_META_NODES
-        boost::shared_ptr<TYPE> isType = holder->getKnobByNameAndType<TYPE>(scriptName);
-        if (isType) {
-            //Remove from the parent if it exists, because it will be added again afterwards
-            isType->resetParent();
-
-            return isType;
+        boost::shared_ptr<TYPE> ret = holder->getOrCreateKnob<TYPE>(scriptName, dimension);
+        if (!ret) {
+            return ret;
         }
-#else
-        Q_UNUSED(scriptName);
-#endif
-        boost::shared_ptr<TYPE> ret = AppManager::createKnob<TYPE>(holder.get(), getParamLabel(param), dimension);
-        ret->setName(scriptName);
 
+
+        /**
+         * For readers/writers embedded in a ReadNode or WriteNode, the holder will be the ReadNode and WriteNode
+         * but to ensure that all functions such as getKnobByName actually work, we add them to the knob vector so that
+         * interacting with the Reader or the container is actually the same.
+         **/
+        EffectInstancePtr thisEffect = _effect.lock();
+        if ( ret->getHolder() != thisEffect && !thisEffect->getKnobByName(scriptName) ) {
+            thisEffect->addKnob(ret);
+            ret->setActualCloneForHolder(thisEffect);
+        }
+
+        ret->setLabel(getParamLabel(param));
+        
         return ret;
     }
 
 public Q_SLOTS:
 
     /*
-       These are called when the properties are changed on the Natron side
+     These are called when the properties are changed on the Natron side
      */
     void onEvaluateOnChangeChanged(bool evaluate);
     void onSecretChanged();
     void onHintTooltipChanged();
     void onEnabledChanged();
     void onLabelChanged();
-    void onDisplayMinMaxChanged(double min, double max, int index);
-    void onMinMaxChanged(double min, double max, int index);
-    void onKnobAnimationLevelChanged(ViewSpec view, int dimension);
+    void onDisplayMinMaxChanged(DimSpec dimension);
+    void onMinMaxChanged(DimSpec dimension);
+    void onMustRefreshGuiTriggered(ViewSetSpec,DimSpec,ValueChangedReasonEnum);
     void onChoiceMenuReset();
     void onChoiceMenuPopulated();
     void onChoiceMenuEntryAppended();
     void onInViewportSecretChanged();
     void onInViewportLabelChanged();
+
+    void onMustRefreshAutoKeyingPropsLaterReceived();
+
+    void refreshAutoKeyingPropsLater();
+
+    void refreshAutoKeyingPropsNow();
+
+Q_SIGNALS:
+
+    void mustRefreshAnimationLevelLater();
+
 protected:
 
     void setDynamicPropertyModified(bool dynamicPropModified)
@@ -333,7 +352,6 @@ public:
     virtual KnobIPtr getKnob() const OVERRIDE FINAL;
     virtual OFX::Host::Param::Instance* getOfxParam() OVERRIDE FINAL { return this; }
 
-    bool isAnimated() const;
 
 private:
 
@@ -471,9 +489,6 @@ public:
     virtual KnobIPtr getKnob() const OVERRIDE FINAL;
     virtual OFX::Host::Param::Instance* getOfxParam() OVERRIDE FINAL { return this; }
 
-    bool isAnimated(int dimension) const;
-    bool isAnimated() const;
-
 private:
     KnobColorWPtr _knob;
 };
@@ -519,8 +534,6 @@ public:
     virtual KnobIPtr getKnob() const OVERRIDE FINAL;
     virtual OFX::Host::Param::Instance* getOfxParam() OVERRIDE FINAL { return this; }
 
-    bool isAnimated(int dimension) const;
-    bool isAnimated() const;
 
 private:
     KnobColorWPtr _knob;
@@ -566,8 +579,6 @@ public:
     virtual KnobIPtr getKnob() const OVERRIDE FINAL;
     virtual OFX::Host::Param::Instance* getOfxParam() OVERRIDE FINAL { return this; }
 
-    //bool isAnimated(int dimension) const;
-    bool isAnimated() const;
 
 private:
 
@@ -662,8 +673,6 @@ public:
     virtual KnobIPtr getKnob() const OVERRIDE FINAL;
     virtual OFX::Host::Param::Instance* getOfxParam() OVERRIDE FINAL { return this; }
 
-    bool isAnimated(int dimension) const;
-    bool isAnimated() const;
 
 private:
 
@@ -832,16 +841,6 @@ public:
     virtual OFX::Host::Param::Instance* getOfxParam() OVERRIDE FINAL { return this; }
 
 private:
-
-    /**
-     * @brief Expand any project path contained in str
-     **/
-    void projectEnvVar_getProxy(std::string& str) const;
-
-    /**
-     * @brief Find any project path contained in str and replace it by the associated name
-     **/
-    void projectEnvVar_setProxy(std::string& str) const;
 
     boost::scoped_ptr<OfxStringInstancePrivate> _imp;
 };

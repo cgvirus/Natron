@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,13 +41,11 @@ CLANG_DIAG_ON(uninitialized)
 
 #include "Global/GlobalDefines.h"
 
-#include "Engine/Singleton.h"
 #include "Engine/Knob.h"
 #include "Engine/ImagePlaneDesc.h"
 #include "Engine/EngineFwd.h"
 
-#include "Gui/CurveSelection.h"
-#include "Gui/KnobGui.h"
+#include "Gui/KnobGuiWidgets.h"
 #include "Gui/AnimatedCheckBox.h"
 #include "Gui/Label.h"
 #include "Gui/GuiFwd.h"
@@ -54,45 +53,38 @@ CLANG_DIAG_ON(uninitialized)
 NATRON_NAMESPACE_ENTER
 
 class KnobGuiSeparator
-    : public KnobGui
+    : public KnobGuiWidgets
 {
 public:
-    static KnobGui * BuildKnobGui(KnobIPtr knob,
-                                  KnobGuiContainerI *container)
+    static KnobGuiWidgets * BuildKnobGui(const KnobGuiPtr& knob, ViewIdx view)
     {
-        return new KnobGuiSeparator(knob, container);
+        return new KnobGuiSeparator(knob, view);
     }
 
-    KnobGuiSeparator(KnobIPtr knob,
-                     KnobGuiContainerI *container);
+    KnobGuiSeparator(const KnobGuiPtr& knob, ViewIdx view);
 
     virtual ~KnobGuiSeparator() OVERRIDE;
-
-    virtual void removeSpecificGui() OVERRIDE FINAL;
     virtual bool isLabelOnSameColumn() const OVERRIDE FINAL;
     virtual bool isLabelBold() const OVERRIDE FINAL;
-    virtual KnobIPtr getKnob() const OVERRIDE FINAL;
 
 private:
     virtual bool shouldAddStretch() const OVERRIDE FINAL { return false; }
 
     virtual void createWidget(QHBoxLayout* layout) OVERRIDE FINAL;
-    virtual void _hide() OVERRIDE FINAL;
-    virtual void _show() OVERRIDE FINAL;
-    virtual void setEnabled() OVERRIDE FINAL
+    virtual void setWidgetsVisible(bool visible) OVERRIDE FINAL;
+    virtual void setEnabled(const std::vector<bool>& /*perDimEnabled*/) OVERRIDE FINAL
     {
     }
 
-    virtual void setReadOnly(bool /*readOnly*/,
-                             int /*dimension*/) OVERRIDE FINAL
+    virtual void reflectMultipleSelection(bool /*dirty*/) OVERRIDE FINAL
     {
     }
-
-    virtual void setDirty(bool /*dirty*/) OVERRIDE FINAL
+    virtual void reflectSelectionState(bool /*selected*/) OVERRIDE FINAL
     {
+
     }
 
-    virtual void updateGUI(int /*dimension*/) OVERRIDE FINAL
+    virtual void updateGUI() OVERRIDE FINAL
     {
     }
 

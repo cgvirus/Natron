@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,6 +39,7 @@ CLANG_DIAG_ON(uninitialized)
 #include "Engine/PyGlobalFunctions.h"
 
 #include "Gui/PyGuiApp.h"
+#include "Gui/QtEnumConvert.h"
 #include "Gui/GuiApplicationManager.h"
 #include "Gui/GuiFwd.h"
 
@@ -58,29 +60,8 @@ public:
     {
     }
 
-    QPixmap getIcon(PixmapEnum val) const
-    {
-        QPixmap ret;
-
-        appPTR->getIcon(val, &ret);
-
-        return ret;
-    }
-
-    GuiApp* getGuiInstance(int idx) const
-    {
-        AppInstancePtr app = appPTR->getAppInstance(idx);
-
-        if (!app) {
-            return 0;
-        }
-        GuiAppInstancePtr guiApp = boost::dynamic_pointer_cast<GuiAppInstance>(app);
-        if (!guiApp) {
-            return 0;
-        }
-
-        return new GuiApp(guiApp);
-    }
+    QPixmap getIcon(NATRON_NAMESPACE::PixmapEnum val) const;
+    GuiApp* getGuiInstance(int idx) const;
 
     void informationDialog(const QString& title,
                            const QString& message)
@@ -100,8 +81,8 @@ public:
         Dialogs::errorDialog( title.toStdString(), message.toStdString() );
     }
 
-    StandardButtonEnum questionDialog(const QString& title,
-                                      const QString& message)
+    NATRON_NAMESPACE::StandardButtonEnum questionDialog(const QString& title,
+                                                        const QString& message)
     {
         return Dialogs::questionDialog(title.toStdString(), message.toStdString(), false);
     }
@@ -109,7 +90,7 @@ public:
     void addMenuCommand(const QString& grouping,
                         const QString& pythonFunctionName)
     {
-        appPTR->addCommand(grouping, pythonFunctionName.toStdString(), (Qt::Key)0, Qt::NoModifier);
+        appPTR->addMenuCommand(grouping.toStdString(),  pythonFunctionName.toStdString(), eKeyboardModifierNone, (Key)0);
     }
 
     void addMenuCommand(const QString& grouping,
@@ -117,7 +98,7 @@ public:
                         Qt::Key key,
                         const Qt::KeyboardModifiers& modifiers)
     {
-        appPTR->addCommand(grouping, pythonFunctionName.toStdString(), key, modifiers);
+        appPTR->addMenuCommand(grouping.toStdString(), pythonFunctionName.toStdString(), QtEnumConvert::fromQtModifiers(modifiers),  QtEnumConvert::fromQtKey(key));
     }
 };
 

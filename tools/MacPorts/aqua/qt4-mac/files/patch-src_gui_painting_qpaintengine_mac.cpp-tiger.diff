@@ -1,5 +1,5 @@
---- src/gui/painting/qpaintengine_mac.cpp.orig	2017-08-31 22:56:01.000000000 +0200
-+++ src/gui/painting/qpaintengine_mac.cpp	2017-08-31 23:10:20.000000000 +0200
+--- src/gui/painting/qpaintengine_mac.cpp.orig
++++ src/gui/painting/qpaintengine_mac.cpp
 @@ -334,7 +334,16 @@
      if ((colorSpace = m_displayColorSpaceHash.value(displayID)))
          return colorSpace;

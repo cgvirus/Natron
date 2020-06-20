@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +28,7 @@
 
 #include "Global/Macros.h"
 
-//Defined to avoid including some headers when running shiboken which may crash shiboken (particularily boost headers)
+//Defined to avoid including some headers when running shiboken which may crash shiboken (particularly boost headers)
 #define SBK_RUN
 
 #include <pyside_global.h>
@@ -43,6 +44,8 @@
 #include "PyGlobalFunctions.h"
 #include "PyNodeGroup.h"
 #include "PyAppInstance.h"
+#include "PyItemsTable.h"
+#include "PyOverlayInteract.h"
 #include "PyRoto.h"
 #include "PyTracker.h"
 #include "PyNode.h"

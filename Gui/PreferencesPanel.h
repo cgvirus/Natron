@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,6 +34,7 @@ CLANG_DIAG_OFF(uninitialized)
 CLANG_DIAG_ON(deprecated)
 CLANG_DIAG_ON(uninitialized)
 
+#include "Global/GlobalDefines.h"
 #include "Gui/KnobGuiContainerHelper.h"
 #include "Gui/LineEdit.h"
 #include "Gui/GuiFwd.h"
@@ -63,17 +65,22 @@ public:
         return true;
     }
 
-    void addShortcut(BoundAction* action);
+    virtual std::string getHolderFullyQualifiedScriptName() const OVERRIDE FINAL
+    {
+        return std::string();
+    }
 
 public Q_SLOTS:
 
-    void restoreDefaults();
+    void onRestoreAllDefaultsClicked();
 
-    void cancelChanges();
+    void onRestoreCurrentTabDefaultsClicked();
 
-    void saveChangesAndClose();
+    void closeDialog();
 
-    void onSettingChanged(KnobI* knob);
+    void refreshShortcutsFromSettings();
+
+    void onSettingChanged(const KnobIPtr& knob, ValueChangedReasonEnum reason);
 
     void openHelp();
 
@@ -104,17 +111,19 @@ private:
     void createShortcutEditor(QTreeWidgetItem* uiPageTreeItem);
 
     virtual void showEvent(QShowEvent* e) OVERRIDE;
-    virtual void closeEvent(QCloseEvent* e) OVERRIDE;
     virtual void keyPressEvent(QKeyEvent* e) OVERRIDE FINAL;
     virtual void onPageActivated(const KnobPageGuiPtr& page) OVERRIDE FINAL;
     virtual void refreshCurrentPage() OVERRIDE FINAL;
     virtual QWidget* getPagesContainer() const OVERRIDE FINAL;
+    virtual QWidget* getMainContainer() const OVERRIDE FINAL;
+    virtual QLayout* getMainContainerLayout() const OVERRIDE FINAL;
     virtual QWidget* createPageMainWidget(QWidget* parent) const OVERRIDE FINAL;
     virtual void addPageToPagesContainer(const KnobPageGuiPtr& page) OVERRIDE FINAL;
     virtual void removePageFromContainer(const KnobPageGuiPtr& page) OVERRIDE FINAL;
     virtual void refreshUndoRedoButtonsEnabledNess(bool canUndo, bool canRedo) OVERRIDE FINAL;
     virtual void setPagesOrder(const std::list<KnobPageGuiPtr>& order, const KnobPageGuiPtr& curPage, bool restorePageIndex) OVERRIDE FINAL;
     virtual void onPageLabelChanged(const KnobPageGuiPtr& page) OVERRIDE FINAL;
+    virtual NodeGuiPtr getNodeGui() const OVERRIDE FINAL;
     boost::scoped_ptr<PreferencesPanelPrivate> _imp;
 };
 

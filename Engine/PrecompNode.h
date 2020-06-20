@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,82 +33,54 @@
 #include <boost/scoped_ptr.hpp>
 #endif
 
-#include "Engine/OutputEffectInstance.h"
+#include "Engine/NodeGroup.h"
+
 #include "Engine/EngineFwd.h"
 
 NATRON_NAMESPACE_ENTER
 
 struct PrecompNodePrivate;
 class PrecompNode
-    : public EffectInstance
+    : public NodeGroup
 {
 GCC_DIAG_SUGGEST_OVERRIDE_OFF
     Q_OBJECT
 GCC_DIAG_SUGGEST_OVERRIDE_ON
 
+private: // derives from EffectInstance
+    // constructors should be privatized in any class that derives from boost::enable_shared_from_this<>
+    PrecompNode(const NodePtr& n);
 public:
-
-    static EffectInstance* BuildEffect(NodePtr n)
+    static EffectInstancePtr create(const NodePtr& node) WARN_UNUSED_RETURN
     {
-        return new PrecompNode(n);
+        return EffectInstancePtr( new PrecompNode(node) );
     }
 
-    PrecompNode(NodePtr n);
+    static PluginPtr createPlugin();
 
     virtual ~PrecompNode();
 
-    virtual int getMajorVersion() const OVERRIDE FINAL WARN_UNUSED_RETURN
-    {
-        return 1;
-    }
-
-    virtual int getMinorVersion() const OVERRIDE FINAL WARN_UNUSED_RETURN
-    {
-        return 0;
-    }
-
-    virtual int getNInputs() const OVERRIDE WARN_UNUSED_RETURN
-    {
-        return 0;
-    }
-
-    virtual std::string getPluginID() const OVERRIDE WARN_UNUSED_RETURN;
-    virtual std::string getPluginLabel() const OVERRIDE WARN_UNUSED_RETURN;
-    virtual std::string getPluginDescription() const OVERRIDE WARN_UNUSED_RETURN;
-    virtual void getPluginGrouping(std::list<std::string>* grouping) const OVERRIDE FINAL;
-    virtual bool isInputOptional(int /*inputNb*/) const OVERRIDE
-    {
-        return false;
-    }
-
-    virtual void addAcceptedComponents(int inputNb, std::list<ImagePlaneDesc>* comps) OVERRIDE FINAL;
-    virtual void addSupportedBitDepth(std::list<ImageBitDepthEnum>* depths) const OVERRIDE FINAL;
-
-    ///Doesn't really matter here since it won't be used (this effect is always an identity)
-    virtual RenderSafetyEnum renderThreadSafety() const OVERRIDE FINAL WARN_UNUSED_RETURN
-    {
-        return eRenderSafetyFullySafeFrame;
-    }
 
     virtual bool isOutput() const OVERRIDE WARN_UNUSED_RETURN
     {
         return false;
     }
 
-    virtual bool isHostChannelSelectorSupported(bool* /*defaultR*/,
-                                                bool* /*defaultG*/,
-                                                bool* /*defaultB*/,
-                                                bool* /*defaultA*/) const OVERRIDE FINAL
+    NodePtr getOutputNode() const;
+
+    AppInstancePtr getPrecompApp() const;
+
+    virtual bool isSubGraphUserVisible() const OVERRIDE FINAL WARN_UNUSED_RETURN
     {
         return false;
     }
 
-    NodePtr getOutputNode() const;
+    virtual bool isSubGraphPersistent() const OVERRIDE FINAL WARN_UNUSED_RETURN
+    {
+        return false;
+    }
 
-    void getPrecompInputs(NodesList* nodes) const;
-
-    AppInstancePtr getPrecompApp() const;
-    virtual bool getCreateChannelSelectorKnob() const OVERRIDE FINAL WARN_UNUSED_RETURN { return false; }
+    virtual void setupInitialSubGraphState() OVERRIDE FINAL;
 
 public Q_SLOTS:
 
@@ -119,13 +92,20 @@ private:
 
     virtual void initializeKnobs() OVERRIDE FINAL;
     virtual void onKnobsLoaded() OVERRIDE FINAL;
-    virtual bool knobChanged(KnobI* k,
+    virtual bool knobChanged(const KnobIPtr& k,
                              ValueChangedReasonEnum reason,
-                             ViewSpec view,
-                             double time,
-                             bool originatedFromMainThread) OVERRIDE FINAL;
+                             ViewSetSpec view,
+                             TimeValue time) OVERRIDE FINAL;
     boost::scoped_ptr<PrecompNodePrivate> _imp;
 };
+
+
+inline PrecompNodePtr
+toPrecompNode(const EffectInstancePtr& effect)
+{
+    return boost::dynamic_pointer_cast<PrecompNode>(effect);
+}
+
 
 NATRON_NAMESPACE_EXIT
 

@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -61,7 +62,7 @@ CLANG_DIAG_ON(uninitialized)
 
 #include "Global/QtCompat.h"
 
-#include "Engine/FileSystemModel.h"
+#include "Engine/FileSystemModel.h" // SortableViewI
 #include "Gui/LineEdit.h"
 
 #include "Gui/GuiFwd.h"
@@ -223,7 +224,7 @@ class SequenceDialogView
     SequenceFileDialog* _fd;
 
 public:
-    explicit SequenceDialogView(SequenceFileDialog* fd);
+    explicit SequenceDialogView(Gui* gui, SequenceFileDialog* fd);
 
     void updateNameMapping(const std::vector<std::pair<QString, std::pair<qint64, QString> > > & nameMapping);
 
@@ -354,7 +355,7 @@ public:
      **/
     static void appendFilesFromDirRecursively(QDir* currentDir, QStringList* files);
 
-    static std::vector<SequenceParsing::SequenceFromFilesPtr>fileSequencesFromFilesList(const QStringList & files, const QStringList & supportedFileTypes);
+    static std::vector<SequenceParsing::SequenceFromFilesPtr> fileSequencesFromFilesList(const QStringList & files, const QStringList & supportedFileTypes);
 
 public Q_SLOTS:
 

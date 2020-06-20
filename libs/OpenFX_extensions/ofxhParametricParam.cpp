@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -181,9 +182,9 @@ OfxStatus ParametricInstance::defaultInitializeFromDescriptor(int curveIndex,con
             v[i] = 1.;
         }
         if (n) {
-            _properties.getDoublePropertyN(kOfxParamPropDisplayMax, &v[0], n);
+            _properties.getDoublePropertyN(kOfxParamPropParametricUIColour, &v[0], n);
         }
-        _properties.setDoublePropertyN(kOfxParamPropDisplayMax, &v[0], dim * 3);
+        _properties.setDoublePropertyN(kOfxParamPropParametricUIColour, &v[0], dim * 3);
     }
 
     std::string name = kOfxParamPropControlPoints "_" + unsignedToString(curveIndex);

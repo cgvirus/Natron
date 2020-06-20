@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,7 +23,6 @@
 #include <Python.h>
 // ***** END PYTHON BLOCK *****
 
-#include "TLSHolder.h"
 #include "TLSHolderImpl.h"
 
 #include <cassert>
@@ -38,14 +38,17 @@
 #include <QtCore/QThread>
 #include <QtCore/QDebug>
 
+
 NATRON_NAMESPACE_ENTER
 
 
 AppTLS::AppTLS()
     : _objectMutex()
     , _object( new GLobalTLSObject() )
+#ifndef NATRON_TLS_DISABLE_COPY
     , _spawnsMutex()
     , _spawns()
+#endif
 {
 }
 
@@ -65,22 +68,7 @@ AppTLS::registerTLSHolder(const TLSHolderBaseConstPtr& holder)
     }
 }
 
-static void
-copyAbortInfo(QThread* fromThread,
-              QThread* toThread)
-{
-    AbortableThread* fromAbortable = dynamic_cast<AbortableThread*>(fromThread);
-    AbortableThread* toAbortable = dynamic_cast<AbortableThread*>(toThread);
-
-    if (fromAbortable && toAbortable) {
-        bool isRenderResponseToUserInteraction;
-        AbortableRenderInfoPtr abortInfo;
-        EffectInstancePtr treeRoot;
-        fromAbortable->getAbortInfo(&isRenderResponseToUserInteraction, &abortInfo, &treeRoot);
-        toAbortable->setAbortInfo(isRenderResponseToUserInteraction, abortInfo, treeRoot);
-    }
-}
-
+#ifndef NATRON_TLS_DISABLE_COPY
 void
 AppTLS::copyTLS(QThread* fromThread,
                 QThread* toThread)
@@ -88,8 +76,6 @@ AppTLS::copyTLS(QThread* fromThread,
     if ( (fromThread == toThread) || !fromThread || !toThread ) {
         return;
     }
-
-    copyAbortInfo(fromThread, toThread);
 
     QReadLocker k(&_objectMutex);
     const TLSObjects& objectsCRef = _object->objects; // take a const ref, since it's a read lock
@@ -110,36 +96,52 @@ AppTLS::softCopy(QThread* fromThread,
         return;
     }
 
-    copyAbortInfo(fromThread, toThread);
-
     QWriteLocker k(&_spawnsMutex);
     _spawns[toThread] = fromThread;
 }
-
+#endif
 void
 AppTLS::cleanupTLSForThread()
 {
     QThread* curThread = QThread::currentThread();
-    AbortableThread* isAbortableThread = dynamic_cast<AbortableThread*>(curThread);
 
-    if (isAbortableThread) {
-        isAbortableThread->clearAbortInfo();
-    }
 
-    //Cleanup any cached data on the TLSHolder
+    // Clean-up any thread data on the TLSHolder
+
+#ifndef NATRON_TLS_DISABLE_COPY
+    // If this thread was spawned, but TLS not used, do not bother to clean-up
     {
-        QWriteLocker l(&_spawnsMutex);
+        // Try to find first with a read-lock so we still allow other threads to run
+        bool threadIsInSpawnList = false;
+        {
+            QReadLocker l(&_spawnsMutex);
+            ThreadSpawnMap::iterator foundSpawned = _spawns.find(curThread);
+            if ( foundSpawned != _spawns.end() ) {
+                threadIsInSpawnList = true;
+            }
+        }
 
-        //This thread was spawned, but TLS not used, do not bother to clean-up
-        ThreadSpawnMap::iterator foundSpawned = _spawns.find(curThread);
-        if ( foundSpawned != _spawns.end() ) {
-            _spawns.erase(foundSpawned);
+        if (threadIsInSpawnList) {
+            // The thread is in the spawns list, lock out other threads and remove it from the list
+            QWriteLocker l(&_spawnsMutex);
+            ThreadSpawnMap::iterator foundSpawned = _spawns.find(curThread);
+            if ( foundSpawned != _spawns.end() ) {
+                _spawns.erase(foundSpawned);
 
-            return;
+                return;
+            }
         }
     }
-    std::list<TLSHolderBaseConstPtr> objectsToClean;
+#endif
+
+    // First determine if this thread has objects to clean. Do it under
+    // a read locker so we don't lock out other threads
+    std::list<boost::shared_ptr<const TLSHolderBase> > objectsToClean;
     {
+        // Cycle through each TLS object that had TLS set on it
+        // and check if there's data for this thread.
+        // Note that the list may be extremely long (several thousands of items) so avoid copying it
+        // since we don't lock out other threads.
         QReadLocker k (&_objectMutex);
         const TLSObjects& objectsCRef = _object->objects;
         for (TLSObjects::iterator it = objectsCRef.begin();
@@ -148,11 +150,18 @@ AppTLS::cleanupTLSForThread()
             TLSHolderBaseConstPtr p = (*it).lock();
             if (p) {
                 if ( p->canCleanupPerThreadData(curThread) ) {
+                    // This object has data for this thread, add it to the clean up list
                     objectsToClean.push_back(p);
                 }
             }
         }
     }
+
+    // Clean objects that need it
+    // We can only do so under the write-lock, which will lock out other threads
+    // Note that the _object->objects set may be composed of multiple thousands of items
+    // and this operation is expensive.
+    // However since we are in the clean-up stage for this thread
     if ( !objectsToClean.empty() ) {
 #if 1
         // version from 1a0712b
@@ -188,9 +197,9 @@ AppTLS::cleanupTLSForThread()
     }
 } // AppTLS::cleanupTLSForThread
 
-template class TLSHolder<EffectInstance::EffectTLSData>;
-template class TLSHolder<NATRON_NAMESPACE::OfxHost::OfxHostTLSData>;
-template class TLSHolder<KnobHelper::KnobTLSData>;
+template class TLSHolder<EffectInstanceTLSData>;
+template class TLSHolder<OfxHost::OfxHostTLSData>;
+template class TLSHolder<AppManager::PythonTLSData>;
 template class TLSHolder<Project::ProjectTLSData>;
 template class TLSHolder<OfxClipInstance::ClipTLSData>;
 template class TLSHolder<OfxParamToKnob::OfxParamTLSData>;

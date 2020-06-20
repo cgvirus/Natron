@@ -18,13 +18,19 @@ Functions
 - def :meth:`addUserPlane<NatronEngine.Effect.addUserPlane>` (planeName,channels)
 - def :meth:`endChanges<NatronEngine.Effect.endChanges>` ()
 - def :meth:`beginChanges<NatronEngine.Effect.beginChanges>` ()
+- def :meth:`beginParametersUndoCommand<NatronEngine.Effect.beginParametersUndoCommand>` (commandName)
+- def :meth:`endParametersUndoCommand<NatronEngine.Effect.endParametersUndoCommand>` ()
 - def :meth:`canConnectInput<NatronEngine.Effect.canConnectInput>` (inputNumber, node)
 - def :meth:`connectInput<NatronEngine.Effect.connectInput>` (inputNumber, input)
+- def :meth:`insertParamInViewerUI<NatronEngine.Effect.insertParamInViewerUI>` (parameter[, index=-1])
+- def :meth:`removeParamFromViewerUI<NatronEngine.Effect.removeParamFromViewerUI>` (parameter)
+- def :meth:`clearViewerUIParameters<NatronEngine.Effect.clearViewerUIParameters>` ()
 - def :meth:`destroy<NatronEngine.Effect.destroy>` ([autoReconnect=true])
 - def :meth:`disconnectInput<NatronEngine.Effect.disconnectInput>` (inputNumber)
-- def :meth:`getAvailableLayers<NatronEngine.Effect.getAvailableLayers>` ()
+- def :meth:`getAvailableLayers<NatronEngine.Effect.getAvailableLayers>` (inputNumber)
 - def :meth:`getBitDepth<NatronEngine.Effect.getBitDepth>` ()
 - def :meth:`getColor<NatronEngine.Effect.getColor>` ()
+- def :meth:`getContainerGroup<NatronEngine.Effect.getContainerGroup>` ()
 - def :meth:`getCurrentTime<NatronEngine.Effect.getCurrentTime>` ()
 - def :meth:`getOutputFormat<NatronEngine.Effect.getOutputFormat>` ()
 - def :meth:`getFrameRate<NatronEngine.Effect.getFrameRate>` ()
@@ -40,14 +46,16 @@ Functions
 - def :meth:`getPremult<NatronEngine.Effect.getPremult>` ()
 - def :meth:`getPixelAspectRatio<NatronEngine.Effect.getPixelAspectRatio>` ()
 - def :meth:`getRegionOfDefinition<NatronEngine.Effect.getRegionOfDefinition>` (time,view)
-- def :meth:`getRotoContext<NatronEngine.Effect.getRotoContext>` ()
-- def :meth:`getTrackerContext<NatronEngine.Effect.getTrackerContext>` ()
+- def :meth:`getItemsTable<NatronEngine.Effect.getItemsTable>` (tableName)
+- def :meth:`getAllItemsTable<NatronEngine.Effect.getAllItemsTable>` ()
 - def :meth:`getScriptName<NatronEngine.Effect.getScriptName>` ()
 - def :meth:`getSize<NatronEngine.Effect.getSize>` ()
 - def :meth:`getUserPageParam<NatronEngine.Effect.getUserPageParam>` ()
+- def :meth:`isNodeActivated<NatronEngine.Effect.isNodeActivated>` ()
 - def :meth:`isUserSelected<NatronEngine.Effect.isUserSelected>` ()
 - def :meth:`isReaderNode<NatronEngine.Effect.isReaderNode>` ()
 - def :meth:`isWriterNode<NatronEngine.Effect.isWriterNode>` ()
+- def :meth:`isOutputNode<NatronEngine.Effect.isOutputNode>` ()
 - def :meth:`setColor<NatronEngine.Effect.setColor>` (r, g, b)
 - def :meth:`setLabel<NatronEngine.Effect.setLabel>` (name)
 - def :meth:`setPosition<NatronEngine.Effect.setPosition>` (x, y)
@@ -55,12 +63,13 @@ Functions
 - def :meth:`setSize<NatronEngine.Effect.setSize>` (w, h)
 - def :meth:`setSubGraphEditable<NatronEngine.Effect.setSubGraphEditable>` (editable)
 - def :meth:`setPagesOrder<NatronEngine.Effect.setPagesOrder>` (pages)
+- def :meth:`registerOverlay<NatronEngine.Effect.registerOverlay>` (overlay, params)
+- def :meth:`removeOverlay<NatronEngine.Effect.removeOverlay>` (overlay)
 
 .. _Effectdetails:
 
 Detailed Description
 --------------------
-
 
 The Effect object can be used to operate with a single node in Natron.
 To create a new Effect, use the :func:`app.createNode(pluginID)<NatronEngine.App.createNode>` function.
@@ -154,9 +163,19 @@ Member functions description
     all evaluations into a single one.
     See :func:`beginChanges()<NatronEngine.Effect.beginChanges>`
 
+.. method:: NatronEngine.Effect.beginParametersUndoCommand (commandName)
+
+    :param commandName: :class:`str<PySide.QtCore.QString>`
+
+Same as :func:`beginChanges()<NatronEngine.Effect.beginChanges>` except that all
+parameter changes are gathered under the same undo/redo command and the user will be able
+to undo them all at once from the Edit menu. The *commandName* parameter is the text that
+will be displayed in the Edit menu.
 
 
+.. method:: NatronEngine.Effect.endParametersUndoCommand ()
 
+Close a undo/redo command that was previously opened with :func:`beginParametersUndoCommand()<NatronEngine.Effect.beginParametersUndoCommand>`.
 
 .. method:: NatronEngine.Effect.canConnectInput(inputNumber, node)
 
@@ -188,7 +207,24 @@ Connects *input* to the given *inputNumber* of this Effect.
 This function calls internally :func:`canConnectInput()<NatronEngine.Effect.canConnectInput>`
 to determine if a connection is possible.
 
+.. method:: NatronEngine.Effect.insertParamInViewerUI (parameter[, index=-1])
 
+    :param parameter: :class:`Param<NatronEngine.Param>`
+    :param index: :class:`int<PySide.QtCore.int>`
+
+    Inserts the given **parameter** in the Viewer interface of this Effect.
+    If **index** is -1, the parameter will be added *after* any other parameter in the Viewer
+    interface, otherwise it will be inserted at the given position.
+
+.. method:: NatronEngine.Effect.removeParamFromViewerUI (parameter)
+
+    :param parameter: :class:`Param<NatronEngine.Param>`
+
+    Removes the given **parameter** from the Viewer interface of this Effect.
+
+.. method:: NatronEngine.Effect.clearViewerUIParameters ()
+
+    Removes all parameters from the Viewer interface of this Effect.
 
 .. method:: NatronEngine.Effect.destroy([autoReconnect=true])
 
@@ -209,18 +245,16 @@ their input to the input of this node instead.
 Removes any input Effect connected to the given *inputNumber* of this node.
 
 
-.. method:: NatronEngine.Effect.getAvailableLayers()
+.. method:: NatronEngine.Effect.getAvailableLayers(inputNumber)
 
-    :rtype: :class:`dict`
+    :param inputNumber: :class:`int<PySide.QtCore.int>`
+    :rtype: :class:`sequence`
 
-    Returns the layer available on this node. This is a dict with a :ref:`ImageLayer<NatronEngine.ImageLayer>`
-    as key and :ref:`Effect<NatronEngine.Effect>` as value. The Effect is the closest node in
-    the upstream tree (including this node) that produced that layer.
+    Returns the layers available for the given *inputNumber*.
+    This is a list of :ref:`ImageLayer<NatronEngine.ImageLayer>`.
+    Note that if passing *-1* then this function will return the layers available in the
+    *main* input in addition to the layers produced by this node.
 
-    For example, in a simple graph Read --> Blur, if the Read node has a layer available
-    named "RenderLayer.combined" but Blur is set to process only the color layer (RGBA), then
-    calling this function on the Blur will return a dict containing for key "RenderLayer.combined"
-    the Read node, whereas the dict will have for the key "RGBA" the Blur node.
 
 .. method:: NatronEngine.Effect.getBitDepth()
 
@@ -235,6 +269,14 @@ Removes any input Effect connected to the given *inputNumber* of this node.
 Returns the color of this node as it appears on the node graph as [R,G,B] 3-dimensional tuple.
 
 
+.. method:: NatronEngine.Effect.getContainerGroup()
+
+    :rtype: :class:`Group<NatronEngine.Group>`
+
+
+    If this node is a node inside the top-level node-graph of the application, this returns
+    the *app* object (of class :ref:`App<App>`). Otherwise if this node is a child of a
+    group node, this will return the :ref:`Effect<Effect>` object of the group node.
 
 
 
@@ -277,7 +319,7 @@ thread.
 :rtype: :class:`Effect<NatronEngine.Effect>`
 
     Same as :func:`getInput(inputNumber)<NatronEngine.Effect.getInput>` except that the parameter in input
-    is the name of the input as diplayed on the node-graph. This function is made available for convenience.
+    is the name of the input as displayed on the node-graph. This function is made available for convenience.
 
 
 
@@ -326,7 +368,7 @@ no such parameter exists.
 
     :rtype: :class:`sequence`
 
-Returns all the :doc:`parameters<NatronEngine.Param>` of this Effect as a sequence.
+Returns all the :class:`Param<NatronEngine.Param>` of this Effect as a sequence.
 
 
 
@@ -378,26 +420,20 @@ for the "Output".
 This can be useful for example to set the position of a point parameter to the center
 of the region of definition.
 
-.. method:: NatronEngine.Effect.getRotoContext()
+.. method:: NatronEngine.Effect.getItemsTable(tableName)
 
+    :param tableName: :class:`str<PySide.QtCore.QString>`
+    :rtype: :class:`ItemsTable<NatronEngine.ItemsTable>`
 
-    :rtype: :class:`Roto<NatronEngine.Roto>`
+Returns the items table matching the given *tableName*.
+An :ref:`ItemsTable<ItemsTable>` is used for example in the Tracker node to display the tracks or in the RotoPaint node to display
+the shapes and strokes in the properties panel.
 
-Returns the roto context for this node. Currently only the Roto node has a roto context.
-The roto context is in charge of maintaining all informations relative to :doc:`Beziers<BezierCurve>`
-and :doc:`Layers<Layer>`.
-Most of the nodes don't have a roto context though and this function will return None.
+.. method:: NatronEngine.Effect.getItemsTable()
 
+    :rtype: :class:`PyList`
 
-.. method:: NatronEngine.Effect.getTrackerContext()
-
-
-    :rtype: :class:`Tracker<NatronEngine.Tracker>`
-
-Returns the tracker context for this node. Currently only the Tracker node has a tracker context.
-The tracker context is in charge of maintaining all informations relative to :doc:`Tracks<Track>`.
-Most of the nodes don't have a tracker context though and this function will return None.
-
+Returns a list of all :ref:`ItemsTable<ItemsTable>`held by the node.
 
 
 .. method:: NatronEngine.Effect.getScriptName()
@@ -431,6 +467,18 @@ should not be used.
 
 Convenience function to return the user page parameter if this Effect has one.
 
+.. method:: NatronEngine.Effect.isNodeActivated()
+
+
+    :rtype: :class:`bool<PySide.QtCore.bool>`
+
+
+    Returns whether the node is activated or not.
+    When deactivated, the user cannot interact with the node.
+    A node is in a deactivated state after the user removed it from the node-graph:
+    it still lives a little longer so that an undo operation can insert it again in the nodegraph.
+    This state has nothing to do with the "Disabled" parameter in the "Node" tab of the settings panel.
+
 
 .. method:: NatronEngine.Effect.isUserSelected()
 
@@ -456,6 +504,13 @@ Convenience function to return the user page parameter if this Effect has one.
 
 
     Returns True if this node is a writer node
+
+.. method:: NatronEngine.Effect.isOutputNode()
+
+    :rtype: :class:`bool<PySide.QtCore.bool>`
+
+
+    Returns True if this node is an output node (which also means that it has no output)
 
 .. method:: NatronEngine.Effect.setColor(r, g, b)
 
@@ -555,3 +610,54 @@ Given the string list *pages* try to find the corresponding pages by their-scrip
 and order them in the given order.
 
 
+.. method:: NatronEngine.Effect.registerOverlay (overlay, params)
+
+    :param overlay: :class:`PyOverlayInteract<NatronEngine.PyOverlayInteract>`
+    :param params: :class:`PyDict`
+
+    This function takes in parameter a :ref:`PyOverlayInteract<NatronEngine.PyOverlayInteract>`
+    and registers it as an overlay that will be drawn on the viewer when
+    this node settings panel is opened.
+
+    The key of the *params* dict must match a key in the overlay's parameters description
+    returned by the function :func:`getDescription()<NatronEngine.PyOverlayInteract.getDescription>`
+    of the :ref:`PyOverlayInteract<NatronEngine.PyOverlayInteract>`.
+    The value associated to the key is the script-name of a parameter on this effect that
+    should fill the role description returned by getDescription() on the overlay.
+
+    Note that overlays for a node will be drawn in the order they were registered by this function.
+    To re-order them, you may call :func:`removeOverlay()<NatronEngine.Effect.removeOverlay>`
+    and this function again.
+
+    If a non-optional parameter returned by the :func:`getDescription()<NatronEngine.PyOverlayInteract.getDescription>`
+    is not filled with one of the parameter provided by the *params* or their type/dimension
+    do not match, this function will report an error.
+
+    For instance, to register a point parameter interact::
+
+        # Let's create a group node
+        group = app.createNode("fr.inria.built-in.Group")
+
+        # Create a Double2D parameter that serve as a 2D point
+        param = group.createDouble2DParam("point","Point")
+        group.refreshUserParamsGUI()
+
+        # Create a point interact for the parameter
+        interact = PyPointOverlayInteract()
+
+        # The PyPointOverlayInteract descriptor requires at least a single Double2DParam
+        # that serve as a "position" role. Map it against the parameter we just created
+        # Note that we reference the "point" parameter by its script-name
+        interactParams = {"position": "point"}
+
+        # Register the overlay on the group, it will now be displayed on the viewer
+        group.registerOverlay(interact, interactParams)
+
+
+
+
+.. method:: NatronEngine.Effect.removeOverlay (overlay)
+
+    :param overlay: :class:`PyOverlayInteract<NatronEngine.PyOverlayInteract>`
+
+    Remove an overlay previously registered with registerOverlay

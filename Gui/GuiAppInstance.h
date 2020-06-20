@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,8 +17,8 @@
  * along with Natron.  If not, see <http://www.gnu.org/licenses/gpl-2.0.html>
  * ***** END LICENSE BLOCK ***** */
 
-#ifndef GUIAPPINSTANCE_H
-#define GUIAPPINSTANCE_H
+#ifndef Gui_GuiAppInstance_h
+#define Gui_GuiAppInstance_h
 
 // ***** BEGIN PYTHON BLOCK *****
 // from <https://docs.python.org/3/c-api/intro.html#include-files>:
@@ -35,6 +36,7 @@
 #endif
 
 #include "Engine/AppInstance.h"
+#include "Engine/DimensionIdx.h"
 #include "Engine/ViewIdx.h"
 
 #include "Gui/GuiFwd.h"
@@ -53,36 +55,35 @@ public:
     ViewerTab* viewerUI;
     NodePtr viewerNodeInternal;
     NodeGuiPtr viewerNode;
-#ifndef NATRON_ENABLE_IO_META_NODES
-    std::map<std::string, NodePtr> readerNodes;
-#else
     NodePtr readerNode;
-#endif
 
     FileDialogPreviewProvider()
         : viewerUI(0)
         , viewerNodeInternal()
         , viewerNode()
-#ifndef NATRON_ENABLE_IO_META_NODES
-        , readerNodes()
-#else
         , readerNode()
-#endif
     {}
 };
 
 
 struct GuiAppInstancePrivate;
 class GuiAppInstance
-    : public AppInstance
+    : public AppInstance // derives from boost::enable_shared_from_this<>
 {
 GCC_DIAG_SUGGEST_OVERRIDE_OFF
     Q_OBJECT
 GCC_DIAG_SUGGEST_OVERRIDE_ON
 
-public:
+private:
+    // constructors should be privatized in any class that derives from boost::enable_shared_from_this<>
 
     GuiAppInstance(int appID);
+
+public:
+    static AppInstancePtr create(int appID) WARN_UNUSED_RETURN
+    {
+        return AppInstancePtr( new GuiAppInstance(appID) );
+    }
 
     virtual ~GuiAppInstance();
 
@@ -96,7 +97,7 @@ private:
     void deletePreviewProvider();
 
 
-    /** @brief Attemps to find an untitled autosave. If found one, prompts the user
+    /** @brief Attempts to find an untitled autosave. If found one, prompts the user
      * whether he/she wants to load it. If something was loaded this function
      * returns true,otherwise false.
      **/
@@ -135,14 +136,13 @@ public:
                                               StandardButtons buttons,
                                               StandardButtonEnum defaultButton,
                                               bool* stopAsking) OVERRIDE FINAL WARN_UNUSED_RETURN;
-    virtual void loadProjectGui(bool isAutosave,  boost::archive::xml_iarchive & archive) const OVERRIDE FINAL;
-    virtual void saveProjectGui(boost::archive::xml_oarchive & archive) OVERRIDE FINAL;
+    virtual void loadProjectGui(bool isAutosave,  const SERIALIZATION_NAMESPACE::ProjectSerializationPtr& serialization) const OVERRIDE FINAL;
     virtual void notifyRenderStarted(const QString & sequenceName,
-                                     int firstFrame, int lastFrame,
-                                     int frameStep, bool canPause,
-                                     OutputEffectInstance* writer,
+                                     TimeValue firstFrame, TimeValue lastFrame,
+                                     TimeValue frameStep, bool canPause,
+                                     const NodePtr& writer,
                                      const ProcessHandlerPtr & process) OVERRIDE FINAL;
-    virtual void notifyRenderRestarted( OutputEffectInstance* writer,
+    virtual void notifyRenderRestarted( const NodePtr& writer,
                                         const ProcessHandlerPtr & process) OVERRIDE FINAL;
     virtual void setupViewersForViews(const std::vector<std::string>& viewNames) OVERRIDE FINAL;
 
@@ -152,24 +152,23 @@ public:
 
     bool isClosing() const;
 
+    virtual void setGuiFrozen(bool frozen) OVERRIDE FINAL;
     virtual bool isGuiFrozen() const OVERRIDE FINAL;
     virtual bool isShowingDialog() const OVERRIDE FINAL;
+    virtual void refreshAllTimeEvaluationParams(bool onlyTimeEvaluationKnobs) OVERRIDE FINAL;
     virtual void progressStart(const NodePtr& node, const std::string &message, const std::string &messageid, bool canCancel = true) OVERRIDE FINAL;
     virtual void progressEnd(const NodePtr& node) OVERRIDE FINAL;
     virtual bool progressUpdate(const NodePtr& node, double t) OVERRIDE FINAL;
     virtual void onMaxPanelsOpenedChanged(int maxPanels) OVERRIDE FINAL;
     virtual void onRenderQueuingChanged(bool queueingEnabled) OVERRIDE FINAL;
-    virtual void connectViewersToViewerCache() OVERRIDE FINAL;
-    virtual void disconnectViewersFromViewerCache() OVERRIDE FINAL;
-    FileDialogPreviewProviderPtr getPreviewProvider() const;
+    boost::shared_ptr<FileDialogPreviewProvider> getPreviewProvider() const;
     virtual std::string openImageFileDialog() OVERRIDE FINAL;
     virtual std::string saveImageFileDialog() OVERRIDE FINAL;
-    virtual void clearViewersLastRenderedTexture() OVERRIDE FINAL;
     virtual void appendToScriptEditor(const std::string& str) OVERRIDE FINAL;
     virtual void printAutoDeclaredVariable(const std::string& str) OVERRIDE FINAL;
     virtual void toggleAutoHideGraphInputs() OVERRIDE FINAL;
     virtual void setLastViewerUsingTimeline(const NodePtr& node) OVERRIDE FINAL;
-    virtual ViewerInstance* getLastViewerUsingTimeline() const OVERRIDE FINAL;
+    virtual ViewerNodePtr getLastViewerUsingTimeline() const OVERRIDE FINAL;
 
     void discardLastViewerUsingTimeline();
 
@@ -178,19 +177,26 @@ public:
     virtual void createLoadProjectSplashScreen(const QString& projectFile) OVERRIDE FINAL;
     virtual void updateProjectLoadStatus(const QString& str) OVERRIDE FINAL;
     virtual void closeLoadPRojectSplashScreen() OVERRIDE FINAL;
-    virtual void renderAllViewers(bool canAbort) OVERRIDE FINAL;
+    virtual void getAllViewers(std::list<ViewerNodePtr>* viewers) const OVERRIDE FINAL;
+    virtual void renderAllViewers() OVERRIDE FINAL;
     virtual void refreshAllPreviews() OVERRIDE FINAL;
-    virtual void abortAllViewers() OVERRIDE FINAL;
-    virtual void queueRedrawForAllViewers() OVERRIDE FINAL;
+    virtual void getViewersOpenGLContextFormat(int* bitdepthPerComponent, bool *hasAlpha) const OVERRIDE FINAL;
+    virtual void abortAllViewers(bool autoRestartPlayback) OVERRIDE FINAL;
 
-    int getOverlayRedrawRequestsCount() const;
+    void setKnobDnDData(QDrag* drag, const KnobIPtr& knob, DimSpec dimension, ViewSetSpec view);
+    void getKnobDnDData(QDrag** drag,  KnobIPtr* knob, DimSpec* dimension, ViewSetSpec* view) const;
 
-    void clearOverlayRedrawRequests();
+    virtual bool checkAllReadersModificationDate(bool errorAndWarn) OVERRIDE FINAL;
 
-    void setKnobDnDData(QDrag* drag, const KnobIPtr& knob, int dimension);
-    void getKnobDnDData(QDrag** drag,  KnobIPtr* knob, int* dimension) const;
+    virtual void setMasterSyncViewer(const NodePtr& viewerNode) OVERRIDE FINAL;
 
-    bool checkAllReadersModificationDate(bool errorAndWarn);
+    virtual NodePtr getMasterSyncViewer() const OVERRIDE FINAL WARN_UNUSED_RETURN;
+
+    virtual void showRenderStatsWindow() OVERRIDE FINAL;
+
+    virtual void getHistogramScriptNames(std::list<std::string>* histograms) const OVERRIDE FINAL;
+
+    virtual void getViewportsProjection(std::map<std::string,SERIALIZATION_NAMESPACE::ViewportData>* projections) const OVERRIDE FINAL;
 
 public Q_SLOTS:
 
@@ -198,6 +204,8 @@ public Q_SLOTS:
     void reloadStylesheet();
 
     virtual void redrawAllViewers() OVERRIDE FINAL;
+
+    virtual void redrawAllTimelines() OVERRIDE FINAL;
 
     void projectFormatChanged(const Format& f);
 
@@ -222,63 +230,41 @@ public Q_SLOTS:
     virtual void goToPreviousKeyframe() OVERRIDE FINAL;
     virtual void goToNextKeyframe() OVERRIDE FINAL;
 
-Q_SIGNALS:
-
-    void keyframeIndicatorsChanged();
 
 public:
 
     virtual void* getOfxHostOSHandle() const OVERRIDE FINAL;
 
+    virtual void setUserIsPainting(const RotoStrokeItemPtr& stroke) OVERRIDE FINAL;
+    virtual RotoStrokeItemPtr getActiveRotoDrawingStroke() const OVERRIDE FINAL;
 
-    ///Rotopaint related
-    virtual void updateLastPaintStrokeData(int newAge,
-                                           const std::list<std::pair<Point, double> >& points,
-                                           const RectD& lastPointsBbox,
-                                           int strokeIndex) OVERRIDE FINAL;
-    virtual void getLastPaintStrokePoints(std::list<std::list<std::pair<Point, double> > >* strokes, int* strokeIndex) const OVERRIDE FINAL;
-    virtual void getRenderStrokeData(RectD* lastStrokeMovementBbox, std::list<std::pair<Point, double> >* lastStrokeMovementPoints,
-                                     double *distNextIn, ImagePtr* strokeImage) const OVERRIDE FINAL;
-    virtual int getStrokeLastIndex() const OVERRIDE FINAL;
-    virtual void getStrokeAndMultiStrokeIndex(RotoStrokeItemPtr* stroke, int* strokeIndex) const OVERRIDE FINAL;
-    virtual void updateStrokeImage(const ImagePtr& image, double distNextOut, bool setDistNextOut) OVERRIDE FINAL;
-    virtual RectD getLastPaintStrokeBbox() const OVERRIDE FINAL;
-    virtual RectD getPaintStrokeWholeBbox() const OVERRIDE FINAL;
-    virtual void setUserIsPainting(const NodePtr& rotopaintNode,
-                                   const RotoStrokeItemPtr& stroke,
-                                   bool isPainting) OVERRIDE FINAL;
-    virtual void getActiveRotoDrawingStroke(NodePtr* node,
-                                            RotoStrokeItemPtr* stroke,
-                                            bool* isPainting) const OVERRIDE FINAL;
     virtual void reloadScriptEditorFonts() OVERRIDE FINAL;
-    ///////////////// OVERRIDEN FROM TIMELINEKEYFRAMES
-    virtual void removeAllKeyframesIndicators() OVERRIDE FINAL;
-    virtual void addKeyframeIndicator(SequenceTime time) OVERRIDE FINAL;
-    virtual void addMultipleKeyframeIndicatorsAdded(const std::list<SequenceTime> & keys, bool emitSignal) OVERRIDE FINAL;
-    virtual void removeKeyFrameIndicator(SequenceTime time) OVERRIDE FINAL;
-    virtual void removeMultipleKeyframeIndicator(const std::list<SequenceTime> & keys, bool emitSignal) OVERRIDE FINAL;
-    virtual void addNodesKeyframesToTimeline(const std::list<Node*> & nodes) OVERRIDE FINAL;
-    virtual void addNodeKeyframesToTimeline(Node* node) OVERRIDE FINAL;
-    virtual void removeNodesKeyframesFromTimeline(const std::list<Node*> & nodes) OVERRIDE FINAL;
-    virtual void removeNodeKeyframesFromTimeline(Node* node) OVERRIDE FINAL;
-    virtual void getKeyframes(std::list<SequenceTime>* keys) const OVERRIDE FINAL;
-    virtual void removeAllUserKeyframesIndicators() OVERRIDE FINAL;
-    virtual void addUserKeyframeIndicator(SequenceTime time) OVERRIDE FINAL;
-    virtual void addUserMultipleKeyframeIndicatorsAdded(const std::list<SequenceTime> & keys, bool emitSignal) OVERRIDE FINAL;
-    virtual void removeUserKeyFrameIndicator(SequenceTime time) OVERRIDE FINAL;
-    virtual void removeUserMultipleKeyframeIndicator(const std::list<SequenceTime> & keys, bool emitSignal) OVERRIDE FINAL;
-    virtual void getUserKeyframes(std::list<SequenceTime>* keys) const OVERRIDE FINAL;
-    ///////////////// END OVERRIDEN FROM TIMELINEKEYFRAMES
+
+    virtual void createGroupGui(const NodePtr & group, const CreateNodeArgs& args) OVERRIDE FINAL;
 
 private:
 
-    virtual void onGroupCreationFinished(const NodePtr& node, const NodeSerializationPtr& serialization, bool autoConnect) OVERRIDE FINAL;
-    virtual void createNodeGui(const NodePtr &node,
-                               const NodePtr&  parentMultiInstance,
-                               const CreateNodeArgs& args) OVERRIDE FINAL;
+    virtual void onNodeAboutToBeCreated(const NodePtr& node, const CreateNodeArgsPtr& args) OVERRIDE FINAL;
+
+    virtual void onNodeCreated(const NodePtr& node, const CreateNodeArgsPtr& args) OVERRIDE FINAL;
+
+    virtual void onTabWidgetRegistered(TabWidgetI* tabWidget) OVERRIDE FINAL;
+
+    virtual void onTabWidgetUnregistered(TabWidgetI* tabWidget) OVERRIDE FINAL;
+
+    virtual void createMainWindow() OVERRIDE FINAL;
+
     boost::scoped_ptr<GuiAppInstancePrivate> _imp;
 };
 
+
+inline GuiAppInstancePtr
+toGuiAppInstance(const AppInstancePtr& instance)
+{
+    return boost::dynamic_pointer_cast<GuiAppInstance>(instance);
+}
+
+
 NATRON_NAMESPACE_EXIT
 
-#endif // GUIAPPINSTANCE_H
+#endif // Gui_GuiAppInstance_h

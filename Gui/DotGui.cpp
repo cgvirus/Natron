@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -49,7 +50,6 @@ CLANG_DIAG_ON(uninitialized)
 #include "Engine/Knob.h"
 #include "Engine/MergingEnum.h"
 #include "Engine/Node.h"
-#include "Engine/NodeSerialization.h"
 #include "Engine/OfxEffectInstance.h"
 #include "Engine/OfxImageEffectInstance.h"
 #include "Engine/Plugin.h"
@@ -60,10 +60,8 @@ CLANG_DIAG_ON(uninitialized)
 
 #include "Gui/BackdropGui.h"
 #include "Gui/Button.h"
-#include "Gui/CurveEditor.h"
-#include "Gui/HostOverlay.h"
 #include "Gui/DockablePanel.h"
-#include "Gui/DopeSheetEditor.h"
+#include "Gui/AnimationModuleEditor.h"
 #include "Gui/Edge.h"
 #include "Gui/Gui.h"
 #include "Gui/GuiAppInstance.h"
@@ -73,10 +71,8 @@ CLANG_DIAG_ON(uninitialized)
 #include "Gui/KnobGuiString.h"
 #include "Gui/Label.h"
 #include "Gui/LineEdit.h"
-#include "Gui/MultiInstancePanel.h"
 #include "Gui/NodeGraph.h"
 #include "Gui/NodeGraphUndoRedo.h"
-#include "Gui/NodeGuiSerialization.h"
 #include "Gui/NodeGraphTextItem.h"
 #include "Gui/NodeSettingsPanel.h"
 #include "Gui/SequenceFileDialog.h"
@@ -169,15 +165,6 @@ NodeSettingsPanel*
 DotGui::createPanel(QVBoxLayout* /*container*/,
                     const NodeGuiPtr & /*thisAsShared*/)
 {
-    /* NodeSettingsPanel* panel = new NodeSettingsPanel( MultiInstancePanelPtr(),
-                                                       getDagGui()->getGui(),
-                                                       thisAsShared,
-                                                       container,container->parentWidget() );
-
-       ///Always close the panel by default for Dots
-       panel->setClosed(true);
-
-       return panel;*/
     return 0;
 }
 

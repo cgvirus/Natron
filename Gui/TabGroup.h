@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -60,13 +61,13 @@ public:
 
     QGridLayout* addTab(const KnobGroupPtr& group, const QString &label);
 
-    void removeTab(KnobGroup* group);
+    void removeTab(const KnobGroupPtr& group);
 
     bool isEmpty() const;
 
-    void refreshTabSecretNess(KnobGroup* group);
+    void refreshTabSecretNess(const KnobGroupPtr& group);
 
-    void refreshTabSecretNess(KnobGroup* group, bool secret);
+    void refreshTabSecretNess(const KnobGroupPtr& group, bool secret);
 
 public Q_SLOTS:
 

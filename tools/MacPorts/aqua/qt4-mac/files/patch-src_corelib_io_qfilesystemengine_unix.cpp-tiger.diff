@@ -1,5 +1,5 @@
---- src/corelib/io/qfilesystemengine_unix.cpp.orig	2017-08-31 20:54:04.000000000 +0200
-+++ src/corelib/io/qfilesystemengine_unix.cpp	2017-08-31 20:58:13.000000000 +0200
+--- src/corelib/io/qfilesystemengine_unix.cpp.orig
++++ src/corelib/io/qfilesystemengine_unix.cpp
 @@ -83,6 +83,7 @@
      return (fileInfo->finderFlags & kIsInvisible);
  }

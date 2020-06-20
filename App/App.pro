@@ -1,6 +1,7 @@
 # ***** BEGIN LICENSE BLOCK *****
 # This file is part of Natron <https://natrongithub.github.io/>,
-# Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+# (C) 2018-2020 The Natron developers
+# (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
 #
 # Natron is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,11 +22,12 @@ TARGET = Natron
 # the list of currently maintained versions (those that have to be merged into the master branch)
 VERSION_21 = 2.1.10
 VERSION_22 = 2.2.10
-VERSION_23 = 2.3.15
+VERSION_23 = 2.3.16
+VERSION_24 = 2.4.0
 VERSION_30 = 3.0.0
 
 # The version for this branch
-VERSION = $$VERSION_23
+VERSION = $$VERSION_30
 
 TEMPLATE = app
 win32 {
@@ -34,9 +36,14 @@ win32 {
 } else {
 	CONFIG += app
 }
+# Cairo is still the default renderer for Roto
+!enable-osmesa {
+   CONFIG += enable-cairo
+}
 CONFIG += moc
-CONFIG += boost boost-serialization-lib opengl qt cairo python shiboken pyside 
-CONFIG += static-gui static-engine static-host-support static-breakpadclient static-libmv static-openmvg static-ceres static-qhttpserver static-libtess
+CONFIG += boost opengl qt python shiboken pyside osmesa fontconfig
+enable-cairo: CONFIG += cairo
+CONFIG += static-yaml-cpp static-gui static-engine static-serialization static-host-support static-breakpadclient static-libmv static-openmvg static-ceres static-qhttpserver static-libtess
 
 QT += gui core opengl network
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets concurrent
@@ -52,6 +59,7 @@ macx {
   # replace com.yourcompany with something more meaningful
   QMAKE_TARGET_BUNDLE_PREFIX = fr.inria
   QMAKE_PKGINFO_TYPEINFO = Ntrn
+  QMAKE_SUBSTITUTES += NatronInfo.plist.in
 }
 
 
@@ -82,6 +90,7 @@ macx {
     INSTALLS += Resources
 }
 
+QMAKE_SUBSTITUTES += $$PWD/../Gui/Resources/etc/fonts/fonts.conf.in
 
 
 win32-g++ {
@@ -95,6 +104,3 @@ SOURCES += \
     NatronApp_main.cpp
 
 INSTALLS += target
-
-
-

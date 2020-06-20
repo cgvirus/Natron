@@ -1,5 +1,5 @@
---- src/network/kernel/qnetworkproxy_mac.cpp.orig	2017-08-31 21:05:13.000000000 +0200
-+++ src/network/kernel/qnetworkproxy_mac.cpp	2017-08-31 21:05:44.000000000 +0200
+--- src/network/kernel/qnetworkproxy_mac.cpp.orig
++++ src/network/kernel/qnetworkproxy_mac.cpp
 @@ -148,6 +148,7 @@
  }
  

@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,10 +26,14 @@
 #include <Python.h>
 // ***** END PYTHON BLOCK *****
 
-#include <QThread>
+#include "Global/Macros.h"
+
+#include <QtCore/QThread>
+
+#include "Engine/ThreadPool.h"
 
 #include "Engine/EngineFwd.h"
-#include "Engine/ThreadPool.h"
+
 
 NATRON_NAMESPACE_ENTER
 
@@ -38,11 +43,15 @@ class GenericThreadStartArgs
     // Used to wake-up the thread when calling abortThreadedTask
     bool _isNull;
 
+    // For schedulers with policy eTaskQueueBehaviorSkipToMostRecent, controls
+    // Whether this task can effectively be skipped
+    bool _canSkip;
 public:
 
 
     GenericThreadStartArgs(bool isNullTask = false)
         : _isNull(isNullTask)
+        , _canSkip(true)
     {
     }
 
@@ -51,6 +60,16 @@ public:
     bool isNull() const
     {
         return _isNull;
+    }
+
+    void setCanSkip(bool b)
+    {
+        _canSkip = b;
+    }
+
+    bool isSkippable() const
+    {
+        return _canSkip;
     }
 };
 
@@ -66,6 +85,9 @@ public:
     {
     }
 };
+
+typedef boost::shared_ptr<GenericThreadStartArgs> GenericThreadStartArgsPtr;
+typedef boost::shared_ptr<GenericThreadExecOnMainThreadArgs> ExecOnMTArgsPtr;
 
 /**
  * @brief Implements a generic thread class.
@@ -149,7 +171,7 @@ public:
      * Note: this function is not blocking and the thread may still be running when returning this function,
      * @returns false if the thread was not running, true otherwise.
      **/
-    bool quitThread(bool allowRestarts);
+    bool quitThread(bool allowRestarts, bool abortTask = true);
 
     /**
      * @brief True if quitThread() was called and the thread did not finish yet
@@ -242,7 +264,7 @@ public Q_SLOTS:
 
     /**
      * @brief Requests to abort all computations.
-     * This function is not blocking and once returned you may NOT assume that the thread is completly aborted.
+     * This function is not blocking and once returned you may NOT assume that the thread is completely aborted.
      * @returns true if the thread was running and actively working and we did not post any abort request before, false otherwise
      **/
     bool abortThreadedTask(bool keepOldestRender = true);

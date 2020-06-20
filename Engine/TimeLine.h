@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -64,12 +65,14 @@ public:
 
     void seekFrame(SequenceTime frame,
                    bool updateLastCaller,
-                   OutputEffectInstance* caller,
+                   const EffectInstancePtr& caller,
                    TimelineChangeReasonEnum reason);
 
     void incrementCurrentFrame();
 
     void decrementCurrentFrame();
+
+    TimelineChangeReasonEnum getLastSeekReason() const;
 
 public Q_SLOTS:
 
@@ -89,6 +92,7 @@ private:
     mutable QMutex _lock; // protects the following SequenceTime members
     Project* _project;
     SequenceTime _currentFrame;
+    TimelineChangeReasonEnum _lastSeekReason;
 };
 
 NATRON_NAMESPACE_EXIT

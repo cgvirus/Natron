@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,13 +35,14 @@
 #include <boost/weak_ptr.hpp>
 #endif
 
-#include "Engine/PyParameter.h"
+#include "Engine/PyItemsTable.h"
+
 #include "Engine/EngineFwd.h"
 
 NATRON_NAMESPACE_ENTER;
 NATRON_PYTHON_NAMESPACE_ENTER;
 
-class Track
+class Track : public ItemBase
 {
 public:
 
@@ -53,38 +55,22 @@ public:
         return _marker.lock();
     }
 
-    void setScriptName(const QString& scriptName);
-    QString getScriptName() const;
-
-    Param* getParam(const QString& scriptName) const;
-
-    std::list<Param*> getParams() const;
-
     void reset();
 
 private:
 
+
     TrackMarkerWPtr _marker;
 };
 
-class Tracker
+class Tracker : public ItemsTable
 {
 public:
 
-    Tracker(const TrackerContextPtr& ctx);
+    Tracker(const KnobItemsTablePtr& ctx, const TrackerHelperPtr& tracker);
 
-    ~Tracker();
+    virtual ~Tracker();
 
-    TrackerContextPtr getInternalContext() const
-    {
-        return _ctx.lock();
-    }
-
-    Track* getTrackByName(const QString& name) const;
-
-    void getAllTracks(std::list<Track*>* markers) const;
-
-    void getSelectedTracks(std::list<Track*>* markers) const;
 
     Track* createTrack();
 
@@ -97,7 +83,8 @@ public:
 
 private:
 
-    TrackerContextWPtr _ctx;
+    TrackerHelperWPtr _tracker;
+
 };
 
 NATRON_PYTHON_NAMESPACE_EXIT;

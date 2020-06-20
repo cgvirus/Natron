@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,6 +33,7 @@
 
 NATRON_NAMESPACE_ENTER
 
+
 // same as Qt::WhiteSpaceMode
 enum WhiteSpaceMode {
     WhiteSpaceNormal,
@@ -44,6 +46,37 @@ QString convertFromPlainText(const QString &plain, NATRON_NAMESPACE::WhiteSpaceM
 
 // use genHTML=true when generating markdown for hoedown. false for pandoc
 QString convertFromPlainTextToMarkdown(const QString &plain, bool genHTML, bool isTableElement);
+
+// Exponentiation by squaring
+// works with positive or negative integer exponents.
+template<typename T>
+double
+ipow(T base,
+     int exp)
+{
+    double result = 1.;
+
+    if (exp >= 0) {
+        while (exp) {
+            if (exp & 1) {
+                result *= base;
+            }
+            exp >>= 1;
+            base *= base;
+        }
+    } else {
+        exp = -exp;
+        while (exp) {
+            if (exp & 1) {
+                result /= base;
+            }
+            exp >>= 1;
+            base *= base;
+        }
+    }
+
+    return result;
+}
 
 NATRON_NAMESPACE_EXIT
 

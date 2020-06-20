@@ -25,7 +25,48 @@ NATRON_NAMESPACE_USING NATRON_PYTHON_NAMESPACE_USING
 // Target ---------------------------------------------------------
 
 extern "C" {
+static PyObject* Sbk_NATRON_NAMESPACEFunc_isFailureRetCode(PyObject* self, PyObject* pyArg)
+{
+    PyObject* pyResult = 0;
+    int overloadId = -1;
+    PythonToCppFunc pythonToCpp;
+    SBK_UNUSED(pythonToCpp)
+
+    // Overloaded function decisor
+    // 0: isFailureRetCode(NATRON_NAMESPACE::ActionRetCodeEnum)
+    if ((pythonToCpp = Shiboken::Conversions::isPythonToCppConvertible(SBK_CONVERTER(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ACTIONRETCODEENUM_IDX]), (pyArg)))) {
+        overloadId = 0; // isFailureRetCode(NATRON_NAMESPACE::ActionRetCodeEnum)
+    }
+
+    // Function signature not found.
+    if (overloadId == -1) goto Sbk_NATRON_NAMESPACEFunc_isFailureRetCode_TypeError;
+
+    // Call function/method
+    {
+        ::NATRON_NAMESPACE::ActionRetCodeEnum cppArg0 = ((::NATRON_NAMESPACE::ActionRetCodeEnum)0);
+        pythonToCpp(pyArg, &cppArg0);
+
+        if (!PyErr_Occurred()) {
+            // isFailureRetCode(NATRON_NAMESPACE::ActionRetCodeEnum)
+            bool cppResult = ::NATRON_NAMESPACE::isFailureRetCode(cppArg0);
+            pyResult = Shiboken::Conversions::copyToPython(Shiboken::Conversions::PrimitiveTypeConverter<bool>(), &cppResult);
+        }
+    }
+
+    if (PyErr_Occurred() || !pyResult) {
+        Py_XDECREF(pyResult);
+        return 0;
+    }
+    return pyResult;
+
+    Sbk_NATRON_NAMESPACEFunc_isFailureRetCode_TypeError:
+        const char* overloads[] = {"NatronEngine.Natron.ActionRetCodeEnum", 0};
+        Shiboken::setErrorAboutWrongArguments(pyArg, "NatronEngine.Natron.isFailureRetCode", overloads);
+        return 0;
+}
+
 static PyMethodDef Sbk_NATRON_NAMESPACE_methods[] = {
+    {"isFailureRetCode", (PyCFunction)Sbk_NATRON_NAMESPACEFunc_isFailureRetCode, METH_O|METH_STATIC},
 
     {0} // Sentinel
 };
@@ -217,18 +258,18 @@ static PyNumberMethods SbkNatronEngine_NATRON_NAMESPACE_StandardButtonEnum_as_nu
 // Type conversion functions.
 
 // Python to C++ enum conversion.
-static void NATRON_NAMESPACE_StatusEnum_PythonToCpp_NATRON_NAMESPACE_StatusEnum(PyObject* pyIn, void* cppOut) {
-    *((::NATRON_NAMESPACE::StatusEnum*)cppOut) = (::NATRON_NAMESPACE::StatusEnum) Shiboken::Enum::getValue(pyIn);
+static void NATRON_NAMESPACE_ActionRetCodeEnum_PythonToCpp_NATRON_NAMESPACE_ActionRetCodeEnum(PyObject* pyIn, void* cppOut) {
+    *((::NATRON_NAMESPACE::ActionRetCodeEnum*)cppOut) = (::NATRON_NAMESPACE::ActionRetCodeEnum) Shiboken::Enum::getValue(pyIn);
 
 }
-static PythonToCppFunc is_NATRON_NAMESPACE_StatusEnum_PythonToCpp_NATRON_NAMESPACE_StatusEnum_Convertible(PyObject* pyIn) {
-    if (PyObject_TypeCheck(pyIn, SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_STATUSENUM_IDX]))
-        return NATRON_NAMESPACE_StatusEnum_PythonToCpp_NATRON_NAMESPACE_StatusEnum;
+static PythonToCppFunc is_NATRON_NAMESPACE_ActionRetCodeEnum_PythonToCpp_NATRON_NAMESPACE_ActionRetCodeEnum_Convertible(PyObject* pyIn) {
+    if (PyObject_TypeCheck(pyIn, SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ACTIONRETCODEENUM_IDX]))
+        return NATRON_NAMESPACE_ActionRetCodeEnum_PythonToCpp_NATRON_NAMESPACE_ActionRetCodeEnum;
     return 0;
 }
-static PyObject* NATRON_NAMESPACE_StatusEnum_CppToPython_NATRON_NAMESPACE_StatusEnum(const void* cppIn) {
-    int castCppIn = *((::NATRON_NAMESPACE::StatusEnum*)cppIn);
-    return Shiboken::Enum::newItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_STATUSENUM_IDX], castCppIn);
+static PyObject* NATRON_NAMESPACE_ActionRetCodeEnum_CppToPython_NATRON_NAMESPACE_ActionRetCodeEnum(const void* cppIn) {
+    int castCppIn = *((::NATRON_NAMESPACE::ActionRetCodeEnum*)cppIn);
+    return Shiboken::Enum::newItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ACTIONRETCODEENUM_IDX], castCppIn);
 
 }
 
@@ -311,18 +352,18 @@ static PyObject* NATRON_NAMESPACE_PixmapEnum_CppToPython_NATRON_NAMESPACE_Pixmap
 
 }
 
-static void NATRON_NAMESPACE_ValueChangedReasonEnum_PythonToCpp_NATRON_NAMESPACE_ValueChangedReasonEnum(PyObject* pyIn, void* cppOut) {
-    *((::NATRON_NAMESPACE::ValueChangedReasonEnum*)cppOut) = (::NATRON_NAMESPACE::ValueChangedReasonEnum) Shiboken::Enum::getValue(pyIn);
+static void NATRON_NAMESPACE_ViewerContextLayoutTypeEnum_PythonToCpp_NATRON_NAMESPACE_ViewerContextLayoutTypeEnum(PyObject* pyIn, void* cppOut) {
+    *((::NATRON_NAMESPACE::ViewerContextLayoutTypeEnum*)cppOut) = (::NATRON_NAMESPACE::ViewerContextLayoutTypeEnum) Shiboken::Enum::getValue(pyIn);
 
 }
-static PythonToCppFunc is_NATRON_NAMESPACE_ValueChangedReasonEnum_PythonToCpp_NATRON_NAMESPACE_ValueChangedReasonEnum_Convertible(PyObject* pyIn) {
-    if (PyObject_TypeCheck(pyIn, SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VALUECHANGEDREASONENUM_IDX]))
-        return NATRON_NAMESPACE_ValueChangedReasonEnum_PythonToCpp_NATRON_NAMESPACE_ValueChangedReasonEnum;
+static PythonToCppFunc is_NATRON_NAMESPACE_ViewerContextLayoutTypeEnum_PythonToCpp_NATRON_NAMESPACE_ViewerContextLayoutTypeEnum_Convertible(PyObject* pyIn) {
+    if (PyObject_TypeCheck(pyIn, SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCONTEXTLAYOUTTYPEENUM_IDX]))
+        return NATRON_NAMESPACE_ViewerContextLayoutTypeEnum_PythonToCpp_NATRON_NAMESPACE_ViewerContextLayoutTypeEnum;
     return 0;
 }
-static PyObject* NATRON_NAMESPACE_ValueChangedReasonEnum_CppToPython_NATRON_NAMESPACE_ValueChangedReasonEnum(const void* cppIn) {
-    int castCppIn = *((::NATRON_NAMESPACE::ValueChangedReasonEnum*)cppIn);
-    return Shiboken::Enum::newItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VALUECHANGEDREASONENUM_IDX], castCppIn);
+static PyObject* NATRON_NAMESPACE_ViewerContextLayoutTypeEnum_CppToPython_NATRON_NAMESPACE_ViewerContextLayoutTypeEnum(const void* cppIn) {
+    int castCppIn = *((::NATRON_NAMESPACE::ViewerContextLayoutTypeEnum*)cppIn);
+    return Shiboken::Enum::newItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCONTEXTLAYOUTTYPEENUM_IDX], castCppIn);
 
 }
 
@@ -356,36 +397,6 @@ static PyObject* NATRON_NAMESPACE_ImagePremultiplicationEnum_CppToPython_NATRON_
 
 }
 
-static void NATRON_NAMESPACE_ViewerCompositingOperatorEnum_PythonToCpp_NATRON_NAMESPACE_ViewerCompositingOperatorEnum(PyObject* pyIn, void* cppOut) {
-    *((::NATRON_NAMESPACE::ViewerCompositingOperatorEnum*)cppOut) = (::NATRON_NAMESPACE::ViewerCompositingOperatorEnum) Shiboken::Enum::getValue(pyIn);
-
-}
-static PythonToCppFunc is_NATRON_NAMESPACE_ViewerCompositingOperatorEnum_PythonToCpp_NATRON_NAMESPACE_ViewerCompositingOperatorEnum_Convertible(PyObject* pyIn) {
-    if (PyObject_TypeCheck(pyIn, SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOMPOSITINGOPERATORENUM_IDX]))
-        return NATRON_NAMESPACE_ViewerCompositingOperatorEnum_PythonToCpp_NATRON_NAMESPACE_ViewerCompositingOperatorEnum;
-    return 0;
-}
-static PyObject* NATRON_NAMESPACE_ViewerCompositingOperatorEnum_CppToPython_NATRON_NAMESPACE_ViewerCompositingOperatorEnum(const void* cppIn) {
-    int castCppIn = *((::NATRON_NAMESPACE::ViewerCompositingOperatorEnum*)cppIn);
-    return Shiboken::Enum::newItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOMPOSITINGOPERATORENUM_IDX], castCppIn);
-
-}
-
-static void NATRON_NAMESPACE_ViewerColorSpaceEnum_PythonToCpp_NATRON_NAMESPACE_ViewerColorSpaceEnum(PyObject* pyIn, void* cppOut) {
-    *((::NATRON_NAMESPACE::ViewerColorSpaceEnum*)cppOut) = (::NATRON_NAMESPACE::ViewerColorSpaceEnum) Shiboken::Enum::getValue(pyIn);
-
-}
-static PythonToCppFunc is_NATRON_NAMESPACE_ViewerColorSpaceEnum_PythonToCpp_NATRON_NAMESPACE_ViewerColorSpaceEnum_Convertible(PyObject* pyIn) {
-    if (PyObject_TypeCheck(pyIn, SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOLORSPACEENUM_IDX]))
-        return NATRON_NAMESPACE_ViewerColorSpaceEnum_PythonToCpp_NATRON_NAMESPACE_ViewerColorSpaceEnum;
-    return 0;
-}
-static PyObject* NATRON_NAMESPACE_ViewerColorSpaceEnum_CppToPython_NATRON_NAMESPACE_ViewerColorSpaceEnum(const void* cppIn) {
-    int castCppIn = *((::NATRON_NAMESPACE::ViewerColorSpaceEnum*)cppIn);
-    return Shiboken::Enum::newItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOLORSPACEENUM_IDX], castCppIn);
-
-}
-
 static void NATRON_NAMESPACE_ImageBitDepthEnum_PythonToCpp_NATRON_NAMESPACE_ImageBitDepthEnum(PyObject* pyIn, void* cppOut) {
     *((::NATRON_NAMESPACE::ImageBitDepthEnum*)cppOut) = (::NATRON_NAMESPACE::ImageBitDepthEnum) Shiboken::Enum::getValue(pyIn);
 
@@ -416,33 +427,33 @@ static PyObject* NATRON_NAMESPACE_OrientationEnum_CppToPython_NATRON_NAMESPACE_O
 
 }
 
-static void NATRON_NAMESPACE_PlaybackModeEnum_PythonToCpp_NATRON_NAMESPACE_PlaybackModeEnum(PyObject* pyIn, void* cppOut) {
-    *((::NATRON_NAMESPACE::PlaybackModeEnum*)cppOut) = (::NATRON_NAMESPACE::PlaybackModeEnum) Shiboken::Enum::getValue(pyIn);
+static void NATRON_NAMESPACE_RotoStrokeType_PythonToCpp_NATRON_NAMESPACE_RotoStrokeType(PyObject* pyIn, void* cppOut) {
+    *((::NATRON_NAMESPACE::RotoStrokeType*)cppOut) = (::NATRON_NAMESPACE::RotoStrokeType) Shiboken::Enum::getValue(pyIn);
 
 }
-static PythonToCppFunc is_NATRON_NAMESPACE_PlaybackModeEnum_PythonToCpp_NATRON_NAMESPACE_PlaybackModeEnum_Convertible(PyObject* pyIn) {
-    if (PyObject_TypeCheck(pyIn, SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PLAYBACKMODEENUM_IDX]))
-        return NATRON_NAMESPACE_PlaybackModeEnum_PythonToCpp_NATRON_NAMESPACE_PlaybackModeEnum;
+static PythonToCppFunc is_NATRON_NAMESPACE_RotoStrokeType_PythonToCpp_NATRON_NAMESPACE_RotoStrokeType_Convertible(PyObject* pyIn) {
+    if (PyObject_TypeCheck(pyIn, SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ROTOSTROKETYPE_IDX]))
+        return NATRON_NAMESPACE_RotoStrokeType_PythonToCpp_NATRON_NAMESPACE_RotoStrokeType;
     return 0;
 }
-static PyObject* NATRON_NAMESPACE_PlaybackModeEnum_CppToPython_NATRON_NAMESPACE_PlaybackModeEnum(const void* cppIn) {
-    int castCppIn = *((::NATRON_NAMESPACE::PlaybackModeEnum*)cppIn);
-    return Shiboken::Enum::newItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PLAYBACKMODEENUM_IDX], castCppIn);
+static PyObject* NATRON_NAMESPACE_RotoStrokeType_CppToPython_NATRON_NAMESPACE_RotoStrokeType(const void* cppIn) {
+    int castCppIn = *((::NATRON_NAMESPACE::RotoStrokeType*)cppIn);
+    return Shiboken::Enum::newItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ROTOSTROKETYPE_IDX], castCppIn);
 
 }
 
-static void NATRON_NAMESPACE_DisplayChannelsEnum_PythonToCpp_NATRON_NAMESPACE_DisplayChannelsEnum(PyObject* pyIn, void* cppOut) {
-    *((::NATRON_NAMESPACE::DisplayChannelsEnum*)cppOut) = (::NATRON_NAMESPACE::DisplayChannelsEnum) Shiboken::Enum::getValue(pyIn);
+static void NATRON_NAMESPACE_PenType_PythonToCpp_NATRON_NAMESPACE_PenType(PyObject* pyIn, void* cppOut) {
+    *((::NATRON_NAMESPACE::PenType*)cppOut) = (::NATRON_NAMESPACE::PenType) Shiboken::Enum::getValue(pyIn);
 
 }
-static PythonToCppFunc is_NATRON_NAMESPACE_DisplayChannelsEnum_PythonToCpp_NATRON_NAMESPACE_DisplayChannelsEnum_Convertible(PyObject* pyIn) {
-    if (PyObject_TypeCheck(pyIn, SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_DISPLAYCHANNELSENUM_IDX]))
-        return NATRON_NAMESPACE_DisplayChannelsEnum_PythonToCpp_NATRON_NAMESPACE_DisplayChannelsEnum;
+static PythonToCppFunc is_NATRON_NAMESPACE_PenType_PythonToCpp_NATRON_NAMESPACE_PenType_Convertible(PyObject* pyIn) {
+    if (PyObject_TypeCheck(pyIn, SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PENTYPE_IDX]))
+        return NATRON_NAMESPACE_PenType_PythonToCpp_NATRON_NAMESPACE_PenType;
     return 0;
 }
-static PyObject* NATRON_NAMESPACE_DisplayChannelsEnum_CppToPython_NATRON_NAMESPACE_DisplayChannelsEnum(const void* cppIn) {
-    int castCppIn = *((::NATRON_NAMESPACE::DisplayChannelsEnum*)cppIn);
-    return Shiboken::Enum::newItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_DISPLAYCHANNELSENUM_IDX], castCppIn);
+static PyObject* NATRON_NAMESPACE_PenType_CppToPython_NATRON_NAMESPACE_PenType(const void* cppIn) {
+    int castCppIn = *((::NATRON_NAMESPACE::PenType*)cppIn);
+    return Shiboken::Enum::newItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PENTYPE_IDX], castCppIn);
 
 }
 
@@ -461,6 +472,21 @@ static PyObject* NATRON_NAMESPACE_MergingFunctionEnum_CppToPython_NATRON_NAMESPA
 
 }
 
+static void NATRON_NAMESPACE_TableChangeReasonEnum_PythonToCpp_NATRON_NAMESPACE_TableChangeReasonEnum(PyObject* pyIn, void* cppOut) {
+    *((::NATRON_NAMESPACE::TableChangeReasonEnum*)cppOut) = (::NATRON_NAMESPACE::TableChangeReasonEnum) Shiboken::Enum::getValue(pyIn);
+
+}
+static PythonToCppFunc is_NATRON_NAMESPACE_TableChangeReasonEnum_PythonToCpp_NATRON_NAMESPACE_TableChangeReasonEnum_Convertible(PyObject* pyIn) {
+    if (PyObject_TypeCheck(pyIn, SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_TABLECHANGEREASONENUM_IDX]))
+        return NATRON_NAMESPACE_TableChangeReasonEnum_PythonToCpp_NATRON_NAMESPACE_TableChangeReasonEnum;
+    return 0;
+}
+static PyObject* NATRON_NAMESPACE_TableChangeReasonEnum_CppToPython_NATRON_NAMESPACE_TableChangeReasonEnum(const void* cppIn) {
+    int castCppIn = *((::NATRON_NAMESPACE::TableChangeReasonEnum*)cppIn);
+    return Shiboken::Enum::newItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_TABLECHANGEREASONENUM_IDX], castCppIn);
+
+}
+
 void init_NATRON_NAMESPACE(PyObject* module)
 {
     SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_IDX] = reinterpret_cast<PyTypeObject*>(&Sbk_NATRON_NAMESPACE_Type);
@@ -473,39 +499,45 @@ void init_NATRON_NAMESPACE(PyObject* module)
 
     // Initialization of enums.
 
-    // Initialization of enum 'StatusEnum'.
-    SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_STATUSENUM_IDX] = Shiboken::Enum::createScopedEnum(&Sbk_NATRON_NAMESPACE_Type,
-        "StatusEnum",
-        "NatronEngine.Natron.StatusEnum",
-        "Natron::StatusEnum");
-    if (!SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_STATUSENUM_IDX])
+    // Initialization of enum 'ActionRetCodeEnum'.
+    SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ACTIONRETCODEENUM_IDX] = Shiboken::Enum::createScopedEnum(&Sbk_NATRON_NAMESPACE_Type,
+        "ActionRetCodeEnum",
+        "NatronEngine.Natron.ActionRetCodeEnum",
+        "Natron::ActionRetCodeEnum");
+    if (!SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ACTIONRETCODEENUM_IDX])
         return ;
 
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_STATUSENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eStatusOK", (long) NATRON_NAMESPACE::eStatusOK))
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ACTIONRETCODEENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eActionStatusOK", (long) NATRON_NAMESPACE::eActionStatusOK))
         return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_STATUSENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eStatusFailed", (long) NATRON_NAMESPACE::eStatusFailed))
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ACTIONRETCODEENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eActionStatusFailed", (long) NATRON_NAMESPACE::eActionStatusFailed))
         return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_STATUSENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eStatusOutOfMemory", (long) NATRON_NAMESPACE::eStatusOutOfMemory))
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ACTIONRETCODEENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eActionStatusInputDisconnected", (long) NATRON_NAMESPACE::eActionStatusInputDisconnected))
         return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_STATUSENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eStatusReplyDefault", (long) NATRON_NAMESPACE::eStatusReplyDefault))
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ACTIONRETCODEENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eActionStatusAborted", (long) NATRON_NAMESPACE::eActionStatusAborted))
         return ;
-    // Register converter for enum 'NATRON_NAMESPACE::StatusEnum'.
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ACTIONRETCODEENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eActionStatusOutOfMemory", (long) NATRON_NAMESPACE::eActionStatusOutOfMemory))
+        return ;
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ACTIONRETCODEENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eActionStatusReplyDefault", (long) NATRON_NAMESPACE::eActionStatusReplyDefault))
+        return ;
+    // Register converter for enum 'NATRON_NAMESPACE::ActionRetCodeEnum'.
     {
-        SbkConverter* converter = Shiboken::Conversions::createConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_STATUSENUM_IDX],
-            NATRON_NAMESPACE_StatusEnum_CppToPython_NATRON_NAMESPACE_StatusEnum);
+        SbkConverter* converter = Shiboken::Conversions::createConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ACTIONRETCODEENUM_IDX],
+            NATRON_NAMESPACE_ActionRetCodeEnum_CppToPython_NATRON_NAMESPACE_ActionRetCodeEnum);
         Shiboken::Conversions::addPythonToCppValueConversion(converter,
-            NATRON_NAMESPACE_StatusEnum_PythonToCpp_NATRON_NAMESPACE_StatusEnum,
-            is_NATRON_NAMESPACE_StatusEnum_PythonToCpp_NATRON_NAMESPACE_StatusEnum_Convertible);
-        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_STATUSENUM_IDX], converter);
-        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_STATUSENUM_IDX], converter);
-        Shiboken::Conversions::registerConverterName(converter, "Natron::StatusEnum");
-        Shiboken::Conversions::registerConverterName(converter, "StatusEnum");
+            NATRON_NAMESPACE_ActionRetCodeEnum_PythonToCpp_NATRON_NAMESPACE_ActionRetCodeEnum,
+            is_NATRON_NAMESPACE_ActionRetCodeEnum_PythonToCpp_NATRON_NAMESPACE_ActionRetCodeEnum_Convertible);
+        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ACTIONRETCODEENUM_IDX], converter);
+        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ACTIONRETCODEENUM_IDX], converter);
+        Shiboken::Conversions::registerConverterName(converter, "Natron::ActionRetCodeEnum");
+        Shiboken::Conversions::registerConverterName(converter, "ActionRetCodeEnum");
     }
-    // End of 'StatusEnum' enum.
+    // End of 'ActionRetCodeEnum' enum.
 
     // Initialization of enum 'StandardButtonEnum'.
     SbkNatronEngineTypes[SBK_QFLAGS_NATRON_NAMESPACE_STANDARDBUTTONENUM__IDX] = PySide::QFlags::create("StandardButtons", &SbkNatronEngine_NATRON_NAMESPACE_StandardButtonEnum_as_number);
@@ -1147,6 +1179,30 @@ void init_NATRON_NAMESPACE(PyObject* module)
         &Sbk_NATRON_NAMESPACE_Type, "NATRON_PIXMAP_FREEZE_DISABLED", (long) NATRON_NAMESPACE::NATRON_PIXMAP_FREEZE_DISABLED))
         return ;
     if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PIXMAPENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "NATRON_PIXMAP_CURVE_EDITOR", (long) NATRON_NAMESPACE::NATRON_PIXMAP_CURVE_EDITOR))
+        return ;
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PIXMAPENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "NATRON_PIXMAP_DOPE_SHEET", (long) NATRON_NAMESPACE::NATRON_PIXMAP_DOPE_SHEET))
+        return ;
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PIXMAPENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "NATRON_PIXMAP_NODE_GRAPH", (long) NATRON_NAMESPACE::NATRON_PIXMAP_NODE_GRAPH))
+        return ;
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PIXMAPENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "NATRON_PIXMAP_PROGRESS_PANEL", (long) NATRON_NAMESPACE::NATRON_PIXMAP_PROGRESS_PANEL))
+        return ;
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PIXMAPENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "NATRON_PIXMAP_SCRIPT_EDITOR", (long) NATRON_NAMESPACE::NATRON_PIXMAP_SCRIPT_EDITOR))
+        return ;
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PIXMAPENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "NATRON_PIXMAP_PROPERTIES_PANEL", (long) NATRON_NAMESPACE::NATRON_PIXMAP_PROPERTIES_PANEL))
+        return ;
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PIXMAPENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "NATRON_PIXMAP_ANIMATION_MODULE", (long) NATRON_NAMESPACE::NATRON_PIXMAP_ANIMATION_MODULE))
+        return ;
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PIXMAPENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "NATRON_PIXMAP_VIEWER_PANEL", (long) NATRON_NAMESPACE::NATRON_PIXMAP_VIEWER_PANEL))
+        return ;
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PIXMAPENUM_IDX],
         &Sbk_NATRON_NAMESPACE_Type, "NATRON_PIXMAP_VIEWER_ICON", (long) NATRON_NAMESPACE::NATRON_PIXMAP_VIEWER_ICON))
         return ;
     if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PIXMAPENUM_IDX],
@@ -1367,48 +1423,39 @@ void init_NATRON_NAMESPACE(PyObject* module)
     }
     // End of 'PixmapEnum' enum.
 
-    // Initialization of enum 'ValueChangedReasonEnum'.
-    SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VALUECHANGEDREASONENUM_IDX] = Shiboken::Enum::createScopedEnum(&Sbk_NATRON_NAMESPACE_Type,
-        "ValueChangedReasonEnum",
-        "NatronEngine.Natron.ValueChangedReasonEnum",
-        "Natron::ValueChangedReasonEnum");
-    if (!SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VALUECHANGEDREASONENUM_IDX])
+    // Initialization of enum 'ViewerContextLayoutTypeEnum'.
+    SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCONTEXTLAYOUTTYPEENUM_IDX] = Shiboken::Enum::createScopedEnum(&Sbk_NATRON_NAMESPACE_Type,
+        "ViewerContextLayoutTypeEnum",
+        "NatronEngine.Natron.ViewerContextLayoutTypeEnum",
+        "Natron::ViewerContextLayoutTypeEnum");
+    if (!SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCONTEXTLAYOUTTYPEENUM_IDX])
         return ;
 
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VALUECHANGEDREASONENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eValueChangedReasonUserEdited", (long) NATRON_NAMESPACE::eValueChangedReasonUserEdited))
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCONTEXTLAYOUTTYPEENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eViewerContextLayoutTypeSpacing", (long) NATRON_NAMESPACE::eViewerContextLayoutTypeSpacing))
         return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VALUECHANGEDREASONENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eValueChangedReasonPluginEdited", (long) NATRON_NAMESPACE::eValueChangedReasonPluginEdited))
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCONTEXTLAYOUTTYPEENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eViewerContextLayoutTypeSeparator", (long) NATRON_NAMESPACE::eViewerContextLayoutTypeSeparator))
         return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VALUECHANGEDREASONENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eValueChangedReasonNatronGuiEdited", (long) NATRON_NAMESPACE::eValueChangedReasonNatronGuiEdited))
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCONTEXTLAYOUTTYPEENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eViewerContextLayoutTypeStretchAfter", (long) NATRON_NAMESPACE::eViewerContextLayoutTypeStretchAfter))
         return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VALUECHANGEDREASONENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eValueChangedReasonNatronInternalEdited", (long) NATRON_NAMESPACE::eValueChangedReasonNatronInternalEdited))
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCONTEXTLAYOUTTYPEENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eViewerContextLayoutTypeAddNewLine", (long) NATRON_NAMESPACE::eViewerContextLayoutTypeAddNewLine))
         return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VALUECHANGEDREASONENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eValueChangedReasonTimeChanged", (long) NATRON_NAMESPACE::eValueChangedReasonTimeChanged))
-        return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VALUECHANGEDREASONENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eValueChangedReasonSlaveRefresh", (long) NATRON_NAMESPACE::eValueChangedReasonSlaveRefresh))
-        return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VALUECHANGEDREASONENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eValueChangedReasonRestoreDefault", (long) NATRON_NAMESPACE::eValueChangedReasonRestoreDefault))
-        return ;
-    // Register converter for enum 'NATRON_NAMESPACE::ValueChangedReasonEnum'.
+    // Register converter for enum 'NATRON_NAMESPACE::ViewerContextLayoutTypeEnum'.
     {
-        SbkConverter* converter = Shiboken::Conversions::createConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VALUECHANGEDREASONENUM_IDX],
-            NATRON_NAMESPACE_ValueChangedReasonEnum_CppToPython_NATRON_NAMESPACE_ValueChangedReasonEnum);
+        SbkConverter* converter = Shiboken::Conversions::createConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCONTEXTLAYOUTTYPEENUM_IDX],
+            NATRON_NAMESPACE_ViewerContextLayoutTypeEnum_CppToPython_NATRON_NAMESPACE_ViewerContextLayoutTypeEnum);
         Shiboken::Conversions::addPythonToCppValueConversion(converter,
-            NATRON_NAMESPACE_ValueChangedReasonEnum_PythonToCpp_NATRON_NAMESPACE_ValueChangedReasonEnum,
-            is_NATRON_NAMESPACE_ValueChangedReasonEnum_PythonToCpp_NATRON_NAMESPACE_ValueChangedReasonEnum_Convertible);
-        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VALUECHANGEDREASONENUM_IDX], converter);
-        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VALUECHANGEDREASONENUM_IDX], converter);
-        Shiboken::Conversions::registerConverterName(converter, "Natron::ValueChangedReasonEnum");
-        Shiboken::Conversions::registerConverterName(converter, "ValueChangedReasonEnum");
+            NATRON_NAMESPACE_ViewerContextLayoutTypeEnum_PythonToCpp_NATRON_NAMESPACE_ViewerContextLayoutTypeEnum,
+            is_NATRON_NAMESPACE_ViewerContextLayoutTypeEnum_PythonToCpp_NATRON_NAMESPACE_ViewerContextLayoutTypeEnum_Convertible);
+        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCONTEXTLAYOUTTYPEENUM_IDX], converter);
+        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCONTEXTLAYOUTTYPEENUM_IDX], converter);
+        Shiboken::Conversions::registerConverterName(converter, "Natron::ViewerContextLayoutTypeEnum");
+        Shiboken::Conversions::registerConverterName(converter, "ViewerContextLayoutTypeEnum");
     }
-    // End of 'ValueChangedReasonEnum' enum.
+    // End of 'ViewerContextLayoutTypeEnum' enum.
 
     // Initialization of enum 'AnimationLevelEnum'.
     SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ANIMATIONLEVELENUM_IDX] = Shiboken::Enum::createScopedEnum(&Sbk_NATRON_NAMESPACE_Type,
@@ -1426,6 +1473,9 @@ void init_NATRON_NAMESPACE(PyObject* module)
         return ;
     if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ANIMATIONLEVELENUM_IDX],
         &Sbk_NATRON_NAMESPACE_Type, "eAnimationLevelOnKeyframe", (long) NATRON_NAMESPACE::eAnimationLevelOnKeyframe))
+        return ;
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ANIMATIONLEVELENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eAnimationLevelExpression", (long) NATRON_NAMESPACE::eAnimationLevelExpression))
         return ;
     // Register converter for enum 'NATRON_NAMESPACE::AnimationLevelEnum'.
     {
@@ -1471,86 +1521,6 @@ void init_NATRON_NAMESPACE(PyObject* module)
         Shiboken::Conversions::registerConverterName(converter, "ImagePremultiplicationEnum");
     }
     // End of 'ImagePremultiplicationEnum' enum.
-
-    // Initialization of enum 'ViewerCompositingOperatorEnum'.
-    SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOMPOSITINGOPERATORENUM_IDX] = Shiboken::Enum::createScopedEnum(&Sbk_NATRON_NAMESPACE_Type,
-        "ViewerCompositingOperatorEnum",
-        "NatronEngine.Natron.ViewerCompositingOperatorEnum",
-        "Natron::ViewerCompositingOperatorEnum");
-    if (!SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOMPOSITINGOPERATORENUM_IDX])
-        return ;
-
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOMPOSITINGOPERATORENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eViewerCompositingOperatorNone", (long) NATRON_NAMESPACE::eViewerCompositingOperatorNone))
-        return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOMPOSITINGOPERATORENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eViewerCompositingOperatorWipeUnder", (long) NATRON_NAMESPACE::eViewerCompositingOperatorWipeUnder))
-        return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOMPOSITINGOPERATORENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eViewerCompositingOperatorWipeOver", (long) NATRON_NAMESPACE::eViewerCompositingOperatorWipeOver))
-        return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOMPOSITINGOPERATORENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eViewerCompositingOperatorWipeMinus", (long) NATRON_NAMESPACE::eViewerCompositingOperatorWipeMinus))
-        return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOMPOSITINGOPERATORENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eViewerCompositingOperatorWipeOnionSkin", (long) NATRON_NAMESPACE::eViewerCompositingOperatorWipeOnionSkin))
-        return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOMPOSITINGOPERATORENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eViewerCompositingOperatorStackUnder", (long) NATRON_NAMESPACE::eViewerCompositingOperatorStackUnder))
-        return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOMPOSITINGOPERATORENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eViewerCompositingOperatorStackOver", (long) NATRON_NAMESPACE::eViewerCompositingOperatorStackOver))
-        return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOMPOSITINGOPERATORENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eViewerCompositingOperatorStackMinus", (long) NATRON_NAMESPACE::eViewerCompositingOperatorStackMinus))
-        return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOMPOSITINGOPERATORENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eViewerCompositingOperatorStackOnionSkin", (long) NATRON_NAMESPACE::eViewerCompositingOperatorStackOnionSkin))
-        return ;
-    // Register converter for enum 'NATRON_NAMESPACE::ViewerCompositingOperatorEnum'.
-    {
-        SbkConverter* converter = Shiboken::Conversions::createConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOMPOSITINGOPERATORENUM_IDX],
-            NATRON_NAMESPACE_ViewerCompositingOperatorEnum_CppToPython_NATRON_NAMESPACE_ViewerCompositingOperatorEnum);
-        Shiboken::Conversions::addPythonToCppValueConversion(converter,
-            NATRON_NAMESPACE_ViewerCompositingOperatorEnum_PythonToCpp_NATRON_NAMESPACE_ViewerCompositingOperatorEnum,
-            is_NATRON_NAMESPACE_ViewerCompositingOperatorEnum_PythonToCpp_NATRON_NAMESPACE_ViewerCompositingOperatorEnum_Convertible);
-        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOMPOSITINGOPERATORENUM_IDX], converter);
-        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOMPOSITINGOPERATORENUM_IDX], converter);
-        Shiboken::Conversions::registerConverterName(converter, "Natron::ViewerCompositingOperatorEnum");
-        Shiboken::Conversions::registerConverterName(converter, "ViewerCompositingOperatorEnum");
-    }
-    // End of 'ViewerCompositingOperatorEnum' enum.
-
-    // Initialization of enum 'ViewerColorSpaceEnum'.
-    SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOLORSPACEENUM_IDX] = Shiboken::Enum::createScopedEnum(&Sbk_NATRON_NAMESPACE_Type,
-        "ViewerColorSpaceEnum",
-        "NatronEngine.Natron.ViewerColorSpaceEnum",
-        "Natron::ViewerColorSpaceEnum");
-    if (!SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOLORSPACEENUM_IDX])
-        return ;
-
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOLORSPACEENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eViewerColorSpaceSRGB", (long) NATRON_NAMESPACE::eViewerColorSpaceSRGB))
-        return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOLORSPACEENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eViewerColorSpaceLinear", (long) NATRON_NAMESPACE::eViewerColorSpaceLinear))
-        return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOLORSPACEENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eViewerColorSpaceRec709", (long) NATRON_NAMESPACE::eViewerColorSpaceRec709))
-        return ;
-    // Register converter for enum 'NATRON_NAMESPACE::ViewerColorSpaceEnum'.
-    {
-        SbkConverter* converter = Shiboken::Conversions::createConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOLORSPACEENUM_IDX],
-            NATRON_NAMESPACE_ViewerColorSpaceEnum_CppToPython_NATRON_NAMESPACE_ViewerColorSpaceEnum);
-        Shiboken::Conversions::addPythonToCppValueConversion(converter,
-            NATRON_NAMESPACE_ViewerColorSpaceEnum_PythonToCpp_NATRON_NAMESPACE_ViewerColorSpaceEnum,
-            is_NATRON_NAMESPACE_ViewerColorSpaceEnum_PythonToCpp_NATRON_NAMESPACE_ViewerColorSpaceEnum_Convertible);
-        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOLORSPACEENUM_IDX], converter);
-        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_VIEWERCOLORSPACEENUM_IDX], converter);
-        Shiboken::Conversions::registerConverterName(converter, "Natron::ViewerColorSpaceEnum");
-        Shiboken::Conversions::registerConverterName(converter, "ViewerColorSpaceEnum");
-    }
-    // End of 'ViewerColorSpaceEnum' enum.
 
     // Initialization of enum 'ImageBitDepthEnum'.
     SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_IMAGEBITDEPTHENUM_IDX] = Shiboken::Enum::createScopedEnum(&Sbk_NATRON_NAMESPACE_Type,
@@ -1617,79 +1587,97 @@ void init_NATRON_NAMESPACE(PyObject* module)
     }
     // End of 'OrientationEnum' enum.
 
-    // Initialization of enum 'PlaybackModeEnum'.
-    SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PLAYBACKMODEENUM_IDX] = Shiboken::Enum::createScopedEnum(&Sbk_NATRON_NAMESPACE_Type,
-        "PlaybackModeEnum",
-        "NatronEngine.Natron.PlaybackModeEnum",
-        "Natron::PlaybackModeEnum");
-    if (!SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PLAYBACKMODEENUM_IDX])
+    // Initialization of enum 'RotoStrokeType'.
+    SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ROTOSTROKETYPE_IDX] = Shiboken::Enum::createScopedEnum(&Sbk_NATRON_NAMESPACE_Type,
+        "RotoStrokeType",
+        "NatronEngine.Natron.RotoStrokeType",
+        "Natron::RotoStrokeType");
+    if (!SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ROTOSTROKETYPE_IDX])
         return ;
 
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PLAYBACKMODEENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "ePlaybackModeLoop", (long) NATRON_NAMESPACE::ePlaybackModeLoop))
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ROTOSTROKETYPE_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eRotoStrokeTypeSolid", (long) NATRON_NAMESPACE::eRotoStrokeTypeSolid))
         return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PLAYBACKMODEENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "ePlaybackModeBounce", (long) NATRON_NAMESPACE::ePlaybackModeBounce))
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ROTOSTROKETYPE_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eRotoStrokeTypeEraser", (long) NATRON_NAMESPACE::eRotoStrokeTypeEraser))
         return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PLAYBACKMODEENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "ePlaybackModeOnce", (long) NATRON_NAMESPACE::ePlaybackModeOnce))
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ROTOSTROKETYPE_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eRotoStrokeTypeClone", (long) NATRON_NAMESPACE::eRotoStrokeTypeClone))
         return ;
-    // Register converter for enum 'NATRON_NAMESPACE::PlaybackModeEnum'.
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ROTOSTROKETYPE_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eRotoStrokeTypeReveal", (long) NATRON_NAMESPACE::eRotoStrokeTypeReveal))
+        return ;
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ROTOSTROKETYPE_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eRotoStrokeTypeBlur", (long) NATRON_NAMESPACE::eRotoStrokeTypeBlur))
+        return ;
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ROTOSTROKETYPE_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eRotoStrokeTypeSharpen", (long) NATRON_NAMESPACE::eRotoStrokeTypeSharpen))
+        return ;
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ROTOSTROKETYPE_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eRotoStrokeTypeSmear", (long) NATRON_NAMESPACE::eRotoStrokeTypeSmear))
+        return ;
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ROTOSTROKETYPE_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eRotoStrokeTypeDodge", (long) NATRON_NAMESPACE::eRotoStrokeTypeDodge))
+        return ;
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ROTOSTROKETYPE_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eRotoStrokeTypeBurn", (long) NATRON_NAMESPACE::eRotoStrokeTypeBurn))
+        return ;
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ROTOSTROKETYPE_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eRotoStrokeTypeComp", (long) NATRON_NAMESPACE::eRotoStrokeTypeComp))
+        return ;
+    // Register converter for enum 'NATRON_NAMESPACE::RotoStrokeType'.
     {
-        SbkConverter* converter = Shiboken::Conversions::createConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PLAYBACKMODEENUM_IDX],
-            NATRON_NAMESPACE_PlaybackModeEnum_CppToPython_NATRON_NAMESPACE_PlaybackModeEnum);
+        SbkConverter* converter = Shiboken::Conversions::createConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ROTOSTROKETYPE_IDX],
+            NATRON_NAMESPACE_RotoStrokeType_CppToPython_NATRON_NAMESPACE_RotoStrokeType);
         Shiboken::Conversions::addPythonToCppValueConversion(converter,
-            NATRON_NAMESPACE_PlaybackModeEnum_PythonToCpp_NATRON_NAMESPACE_PlaybackModeEnum,
-            is_NATRON_NAMESPACE_PlaybackModeEnum_PythonToCpp_NATRON_NAMESPACE_PlaybackModeEnum_Convertible);
-        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PLAYBACKMODEENUM_IDX], converter);
-        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PLAYBACKMODEENUM_IDX], converter);
-        Shiboken::Conversions::registerConverterName(converter, "Natron::PlaybackModeEnum");
-        Shiboken::Conversions::registerConverterName(converter, "PlaybackModeEnum");
+            NATRON_NAMESPACE_RotoStrokeType_PythonToCpp_NATRON_NAMESPACE_RotoStrokeType,
+            is_NATRON_NAMESPACE_RotoStrokeType_PythonToCpp_NATRON_NAMESPACE_RotoStrokeType_Convertible);
+        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ROTOSTROKETYPE_IDX], converter);
+        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_ROTOSTROKETYPE_IDX], converter);
+        Shiboken::Conversions::registerConverterName(converter, "Natron::RotoStrokeType");
+        Shiboken::Conversions::registerConverterName(converter, "RotoStrokeType");
     }
-    // End of 'PlaybackModeEnum' enum.
+    // End of 'RotoStrokeType' enum.
 
-    // Initialization of enum 'DisplayChannelsEnum'.
-    SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_DISPLAYCHANNELSENUM_IDX] = Shiboken::Enum::createScopedEnum(&Sbk_NATRON_NAMESPACE_Type,
-        "DisplayChannelsEnum",
-        "NatronEngine.Natron.DisplayChannelsEnum",
-        "Natron::DisplayChannelsEnum");
-    if (!SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_DISPLAYCHANNELSENUM_IDX])
+    // Initialization of enum 'PenType'.
+    SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PENTYPE_IDX] = Shiboken::Enum::createScopedEnum(&Sbk_NATRON_NAMESPACE_Type,
+        "PenType",
+        "NatronEngine.Natron.PenType",
+        "Natron::PenType");
+    if (!SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PENTYPE_IDX])
         return ;
 
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_DISPLAYCHANNELSENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eDisplayChannelsRGB", (long) NATRON_NAMESPACE::eDisplayChannelsRGB))
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PENTYPE_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "ePenTypeLMB", (long) NATRON_NAMESPACE::ePenTypeLMB))
         return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_DISPLAYCHANNELSENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eDisplayChannelsR", (long) NATRON_NAMESPACE::eDisplayChannelsR))
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PENTYPE_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "ePenTypeMMB", (long) NATRON_NAMESPACE::ePenTypeMMB))
         return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_DISPLAYCHANNELSENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eDisplayChannelsG", (long) NATRON_NAMESPACE::eDisplayChannelsG))
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PENTYPE_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "ePenTypeRMB", (long) NATRON_NAMESPACE::ePenTypeRMB))
         return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_DISPLAYCHANNELSENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eDisplayChannelsB", (long) NATRON_NAMESPACE::eDisplayChannelsB))
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PENTYPE_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "ePenTypePen", (long) NATRON_NAMESPACE::ePenTypePen))
         return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_DISPLAYCHANNELSENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eDisplayChannelsA", (long) NATRON_NAMESPACE::eDisplayChannelsA))
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PENTYPE_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "ePenTypeCursor", (long) NATRON_NAMESPACE::ePenTypeCursor))
         return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_DISPLAYCHANNELSENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eDisplayChannelsY", (long) NATRON_NAMESPACE::eDisplayChannelsY))
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PENTYPE_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "ePenTypeEraser", (long) NATRON_NAMESPACE::ePenTypeEraser))
         return ;
-    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_DISPLAYCHANNELSENUM_IDX],
-        &Sbk_NATRON_NAMESPACE_Type, "eDisplayChannelsMatte", (long) NATRON_NAMESPACE::eDisplayChannelsMatte))
-        return ;
-    // Register converter for enum 'NATRON_NAMESPACE::DisplayChannelsEnum'.
+    // Register converter for enum 'NATRON_NAMESPACE::PenType'.
     {
-        SbkConverter* converter = Shiboken::Conversions::createConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_DISPLAYCHANNELSENUM_IDX],
-            NATRON_NAMESPACE_DisplayChannelsEnum_CppToPython_NATRON_NAMESPACE_DisplayChannelsEnum);
+        SbkConverter* converter = Shiboken::Conversions::createConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PENTYPE_IDX],
+            NATRON_NAMESPACE_PenType_CppToPython_NATRON_NAMESPACE_PenType);
         Shiboken::Conversions::addPythonToCppValueConversion(converter,
-            NATRON_NAMESPACE_DisplayChannelsEnum_PythonToCpp_NATRON_NAMESPACE_DisplayChannelsEnum,
-            is_NATRON_NAMESPACE_DisplayChannelsEnum_PythonToCpp_NATRON_NAMESPACE_DisplayChannelsEnum_Convertible);
-        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_DISPLAYCHANNELSENUM_IDX], converter);
-        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_DISPLAYCHANNELSENUM_IDX], converter);
-        Shiboken::Conversions::registerConverterName(converter, "Natron::DisplayChannelsEnum");
-        Shiboken::Conversions::registerConverterName(converter, "DisplayChannelsEnum");
+            NATRON_NAMESPACE_PenType_PythonToCpp_NATRON_NAMESPACE_PenType,
+            is_NATRON_NAMESPACE_PenType_PythonToCpp_NATRON_NAMESPACE_PenType_Convertible);
+        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PENTYPE_IDX], converter);
+        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_PENTYPE_IDX], converter);
+        Shiboken::Conversions::registerConverterName(converter, "Natron::PenType");
+        Shiboken::Conversions::registerConverterName(converter, "PenType");
     }
-    // End of 'DisplayChannelsEnum' enum.
+    // End of 'PenType' enum.
 
     // Initialization of enum 'MergingFunctionEnum'.
     SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_MERGINGFUNCTIONENUM_IDX] = Shiboken::Enum::createScopedEnum(&Sbk_NATRON_NAMESPACE_Type,
@@ -1830,20 +1818,50 @@ void init_NATRON_NAMESPACE(PyObject* module)
     }
     // End of 'MergingFunctionEnum' enum.
 
+    // Initialization of enum 'TableChangeReasonEnum'.
+    SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_TABLECHANGEREASONENUM_IDX] = Shiboken::Enum::createScopedEnum(&Sbk_NATRON_NAMESPACE_Type,
+        "TableChangeReasonEnum",
+        "NatronEngine.Natron.TableChangeReasonEnum",
+        "Natron::TableChangeReasonEnum");
+    if (!SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_TABLECHANGEREASONENUM_IDX])
+        return ;
 
-    qRegisterMetaType< ::NATRON_NAMESPACE::StatusEnum >("Natron::StatusEnum");
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_TABLECHANGEREASONENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eTableChangeReasonInternal", (long) NATRON_NAMESPACE::eTableChangeReasonInternal))
+        return ;
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_TABLECHANGEREASONENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eTableChangeReasonViewer", (long) NATRON_NAMESPACE::eTableChangeReasonViewer))
+        return ;
+    if (!Shiboken::Enum::createScopedEnumItem(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_TABLECHANGEREASONENUM_IDX],
+        &Sbk_NATRON_NAMESPACE_Type, "eTableChangeReasonPanel", (long) NATRON_NAMESPACE::eTableChangeReasonPanel))
+        return ;
+    // Register converter for enum 'NATRON_NAMESPACE::TableChangeReasonEnum'.
+    {
+        SbkConverter* converter = Shiboken::Conversions::createConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_TABLECHANGEREASONENUM_IDX],
+            NATRON_NAMESPACE_TableChangeReasonEnum_CppToPython_NATRON_NAMESPACE_TableChangeReasonEnum);
+        Shiboken::Conversions::addPythonToCppValueConversion(converter,
+            NATRON_NAMESPACE_TableChangeReasonEnum_PythonToCpp_NATRON_NAMESPACE_TableChangeReasonEnum,
+            is_NATRON_NAMESPACE_TableChangeReasonEnum_PythonToCpp_NATRON_NAMESPACE_TableChangeReasonEnum_Convertible);
+        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_TABLECHANGEREASONENUM_IDX], converter);
+        Shiboken::Enum::setTypeConverter(SbkNatronEngineTypes[SBK_NATRON_NAMESPACE_TABLECHANGEREASONENUM_IDX], converter);
+        Shiboken::Conversions::registerConverterName(converter, "Natron::TableChangeReasonEnum");
+        Shiboken::Conversions::registerConverterName(converter, "TableChangeReasonEnum");
+    }
+    // End of 'TableChangeReasonEnum' enum.
+
+
+    qRegisterMetaType< ::NATRON_NAMESPACE::ActionRetCodeEnum >("Natron::ActionRetCodeEnum");
     qRegisterMetaType< ::NATRON_NAMESPACE::StandardButtonEnum >("Natron::StandardButtonEnum");
     qRegisterMetaType< ::NATRON_NAMESPACE::StandardButtons >("Natron::StandardButtons");
     qRegisterMetaType< ::NATRON_NAMESPACE::KeyframeTypeEnum >("Natron::KeyframeTypeEnum");
     qRegisterMetaType< ::NATRON_NAMESPACE::PixmapEnum >("Natron::PixmapEnum");
-    qRegisterMetaType< ::NATRON_NAMESPACE::ValueChangedReasonEnum >("Natron::ValueChangedReasonEnum");
+    qRegisterMetaType< ::NATRON_NAMESPACE::ViewerContextLayoutTypeEnum >("Natron::ViewerContextLayoutTypeEnum");
     qRegisterMetaType< ::NATRON_NAMESPACE::AnimationLevelEnum >("Natron::AnimationLevelEnum");
     qRegisterMetaType< ::NATRON_NAMESPACE::ImagePremultiplicationEnum >("Natron::ImagePremultiplicationEnum");
-    qRegisterMetaType< ::NATRON_NAMESPACE::ViewerCompositingOperatorEnum >("Natron::ViewerCompositingOperatorEnum");
-    qRegisterMetaType< ::NATRON_NAMESPACE::ViewerColorSpaceEnum >("Natron::ViewerColorSpaceEnum");
     qRegisterMetaType< ::NATRON_NAMESPACE::ImageBitDepthEnum >("Natron::ImageBitDepthEnum");
     qRegisterMetaType< ::NATRON_NAMESPACE::OrientationEnum >("Natron::OrientationEnum");
-    qRegisterMetaType< ::NATRON_NAMESPACE::PlaybackModeEnum >("Natron::PlaybackModeEnum");
-    qRegisterMetaType< ::NATRON_NAMESPACE::DisplayChannelsEnum >("Natron::DisplayChannelsEnum");
+    qRegisterMetaType< ::NATRON_NAMESPACE::RotoStrokeType >("Natron::RotoStrokeType");
+    qRegisterMetaType< ::NATRON_NAMESPACE::PenType >("Natron::PenType");
     qRegisterMetaType< ::NATRON_NAMESPACE::MergingFunctionEnum >("Natron::MergingFunctionEnum");
+    qRegisterMetaType< ::NATRON_NAMESPACE::TableChangeReasonEnum >("Natron::TableChangeReasonEnum");
 }

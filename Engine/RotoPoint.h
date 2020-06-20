@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,6 +40,7 @@ CLANG_DIAG_ON(deprecated-declarations)
 
 #include "Global/GlobalDefines.h"
 #include "Engine/FitCurve.h"
+
 #include "Engine/EngineFwd.h"
 
 NATRON_NAMESPACE_ENTER
@@ -47,7 +49,7 @@ class RotoPoint
 {
     Point _pos;
     double _pressure;
-    double _timestamp;
+    TimeValue _timestamp;
 
 public:
     RotoPoint()
@@ -55,20 +57,20 @@ public:
 
     RotoPoint(const Point &pos_,
               double pressure_,
-              double timestamp_)
+              TimeValue timestamp_)
         : _pos(pos_), _pressure(pressure_), _timestamp(timestamp_) {}
 
     RotoPoint(double x,
               double y,
               double pressure_,
-              double timestamp_)
+              TimeValue timestamp_)
         : _pressure(pressure_), _timestamp(timestamp_) { _pos.x = x; _pos.y = y; }
 
     const Point& pos() const { return _pos; }
 
     double pressure() const { return _pressure; }
 
-    double timestamp() const { return _timestamp; }
+    TimeValue timestamp() const { return _timestamp; }
 };
 
 NATRON_NAMESPACE_EXIT

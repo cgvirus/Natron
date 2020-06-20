@@ -33,26 +33,32 @@ without importing anything.
     FileParam
     Group
     GroupParam
-    ImageLayer
     Int2DParam
     Int2DTuple
     Int3DParam
     Int3DTuple
     IntParam
+    ImageLayer
     ItemBase
-    Layer
+    ItemsTable
     Natron
-    OutputFileParam
     PageParam
     Param
     ParametricParam
     PathParam
     PyCoreApplication
+    PyOverlayInteract
+    PyOverlayParamDesc
+    PyPointOverlayInteract
+    PyTransformOverlayInteract
+    PyCornerPinOverlayInteract
     RectD
     RectI
     Roto
     StringParam
     StringParamBase
+    StrokeItem
+    StrokePoint
     Track
     Tracker
     UserParamHolder

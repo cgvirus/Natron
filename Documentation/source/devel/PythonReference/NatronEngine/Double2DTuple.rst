@@ -15,7 +15,6 @@ Functions
 
 - def :meth:`__getitem__<NatronEngine.Double2DTuple.__getitem__>` (arg__1)
 
-
 Detailed Description
 --------------------
 

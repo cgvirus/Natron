@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -48,8 +49,8 @@ CLANG_DIAG_ON(tautological-undefined-compare)
 CLANG_DIAG_ON(unknown-pragmas)
 
 #include "Global/GlobalDefines.h"
-#include "Engine/EngineFwd.h"
 
+#include "Engine/EngineFwd.h"
 
 NATRON_NAMESPACE_ENTER
 
@@ -126,7 +127,7 @@ public:
 
     // The extent of the current project in canonical coordinates.
     // The extent is the size of the 'output' for the current project. See ProjectCoordinateSystems
-    // for more infomation on the project extent. The extent is in canonical coordinates and only
+    // for more information on the project extent. The extent is in canonical coordinates and only
     // returns the top right position, as the extent is always rooted at 0,0. For example a PAL SD
     // project would have an extent of 768, 576.
     virtual void getProjectExtent(double & xSize, double & ySize) const OVERRIDE FINAL;
@@ -160,7 +161,7 @@ public:
     /**
      * We add some output parameters to the function so that we can delay the actual setting of the clip preferences
      **/
-    StatusEnum getClipPreferences_safe(NodeMetadata& defaultPrefs);
+    ActionRetCodeEnum getClipPreferences_safe(NodeMetadata& defaultPrefs);
 
     virtual OfxStatus createInstanceAction() OVERRIDE FINAL;
 
@@ -248,14 +249,13 @@ public:
 #endif
 
 
-    bool getInputsHoldingTransform(std::list<int>* inputs) const;
-
     const std::map<std::string, OFX::Host::ImageEffect::ClipInstance*>& getClips() const;
     static bool ofxCursorToNatronCursor(const std::string& ofxCursor, CursorEnum* cursor);
     static const OFX::Host::Property::PropSpec* getOfxParamOverlayInteractDescProps();
 
 private:
-    OfxEffectInstanceWPtr _ofxEffectInstance; /* FIXME: OfxImageEffectInstance should be able to work without the node_ //
+
+    boost::weak_ptr<OfxEffectInstance> _ofxEffectInstance; /* FIXME: OfxImageEffectInstance should be able to work without the node_ //
                                                               Not easy since every Knob need a valid pointer to a node when
                                                               AppManager::createKnob() is called. That's why we need to pass a pointer
                                                               to an OfxParamInstance. Without this pointer we would be unable

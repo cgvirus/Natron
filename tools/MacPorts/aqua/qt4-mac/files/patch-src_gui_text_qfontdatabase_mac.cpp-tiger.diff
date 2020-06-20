@@ -1,5 +1,5 @@
---- src/gui/text/qfontdatabase_mac.cpp.orig	2017-08-31 22:45:17.000000000 +0200
-+++ src/gui/text/qfontdatabase_mac.cpp	2017-08-31 23:10:46.000000000 +0200
+--- src/gui/text/qfontdatabase_mac.cpp.orig
++++ src/gui/text/qfontdatabase_mac.cpp
 @@ -546,6 +546,7 @@
  
  QString QFontDatabase::resolveFontFamilyAlias(const QString &family)

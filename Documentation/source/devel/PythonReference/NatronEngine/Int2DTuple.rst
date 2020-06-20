@@ -14,7 +14,6 @@ Functions
 
 - def :meth:`__getitem__<NatronEngine.Int2DTuple.__getitem__>` (index)
 
-
 Detailed Description
 --------------------
 

@@ -1,6 +1,7 @@
 # ***** BEGIN LICENSE BLOCK *****
 # This file is part of Natron <https://natrongithub.github.io/>,
-# Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+# (C) 2018-2020 The Natron developers
+# (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
 #
 # Natron is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,12 +20,17 @@
 TARGET = Gui
 TEMPLATE = lib
 CONFIG += staticlib
+# Cairo is still the default renderer for Roto
+!enable-osmesa {
+   CONFIG += enable-cairo
+}
 CONFIG += moc rcc
-CONFIG += boost opengl qt cairo python shiboken pyside 
+CONFIG += boost opengl qt python shiboken pyside fontconfig
+enable-cairo: CONFIG += cairo
 QT += gui core opengl network
 greaterThan(QT_MAJOR_VERSION, 4): QT += concurrent
 
-CONFIG += glad-flags
+CONFIG += glad-flags yaml-cpp-flags
 
 include(../global.pri)
 
@@ -42,6 +48,7 @@ INCLUDEPATH += $$PWD/../libs/OpenFX_extensions
 DEPENDPATH  += $$PWD/../libs/OpenFX_extensions
 INCLUDEPATH += $$PWD/../libs/OpenFX/HostSupport/include
 DEPENDPATH  += $$PWD/../libs/OpenFX/HostSupport/include
+INCLUDEPATH += $$PWD/../Serialization
 INCLUDEPATH += $$PWD/..
 INCLUDEPATH += $$PWD/../libs/SequenceParsing
 
@@ -72,36 +79,39 @@ SOURCES += \
     AboutWindow.cpp \
     ActionShortcuts.cpp \
     AddKnobDialog.cpp \
+    AnimItemBase.cpp \
     AnimatedCheckBox.cpp \
+    AnimationModule.cpp \
+    AnimationModuleBase.cpp \
+    AnimationModuleEditor.cpp \
+    AnimationModuleSelectionModel.cpp \
+    AnimationModuleTreeView.cpp \
+    AnimationModuleUndoRedo.cpp \
+    AnimationModuleView.cpp \
+    AnimationModuleViewCurveWidget.cpp \
+    AnimationModuleViewCurveWidgetPrivate.cpp \
+    AnimationModuleViewDopeSheet.cpp \
+    AnimationModuleViewPrivate.cpp \
     AutoHideToolBar.cpp \
     BackdropGui.cpp \
     Button.cpp \
-    ChannelsComboBox.cpp \
+    CachedFramesThread.cpp \
     ClickableLabel.cpp \
     ColoredFrame.cpp \
     ComboBox.cpp \
-    CurveEditor.cpp \
-    CurveEditorUndoRedo.cpp \
     CurveGui.cpp \
-    CurveWidget.cpp \
     CurveWidgetDialogs.cpp \
-    CurveWidgetPrivate.cpp \
     CustomParamInteract.cpp \
     DialogButtonBox.cpp \
     DockablePanel.cpp \
     DockablePanelPrivate.cpp \
     DockablePanelTabWidget.cpp \
     DocumentationManager.cpp \
-    DopeSheet.cpp \
-    DopeSheetEditor.cpp \
-    DopeSheetEditorUndoRedo.cpp \
-    DopeSheetHierarchyView.cpp \
-    DopeSheetView.cpp \
     DotGui.cpp \
     Edge.cpp \
     EditExpressionDialog.cpp \
+    EditNodeViewerContextDialog.cpp \
     EditScriptDialog.cpp \
-    ExportGroupTemplateDialog.cpp \
     FileTypeMainWindow_win.cpp \
     FloatingWidget.cpp \
     GroupBoxLabel.cpp \
@@ -117,10 +127,11 @@ SOURCES += \
     GuiApplicationManager.cpp \
     GuiApplicationManager10.cpp \
     GuiApplicationManagerPrivate.cpp \
+    GuiGLContext.cpp \
     GuiPrivate.cpp \
     Histogram.cpp \
-    HostOverlay.cpp \
     InfoViewerWidget.cpp \
+    KnobAnim.cpp \
     KnobGui.cpp \
     KnobGui10.cpp \
     KnobGui20.cpp \
@@ -132,13 +143,15 @@ SOURCES += \
     KnobGuiFactory.cpp \
     KnobGuiFile.cpp \
     KnobGuiGroup.cpp \
+    KnobGuiKeyFrameMarkers.cpp \
     KnobGuiParametric.cpp \
     KnobGuiPrivate.cpp \
     KnobGuiSeparator.cpp \
     KnobGuiString.cpp \
     KnobGuiTable.cpp \
     KnobGuiValue.cpp \
-    KnobUndoCommand.cpp \
+    KnobGuiWidgets.cpp \
+    KnobItemsTableGui.cpp \
     KnobWidgetDnD.cpp \
     Label.cpp \
     LineEdit.cpp \
@@ -147,9 +160,8 @@ SOURCES += \
     ManageUserParamsDialog.cpp \
     Menu.cpp \
     MessageBox.cpp \
-    MultiInstancePanel.cpp \
     NewLayerDialog.cpp \
-    NodeBackdropSerialization.cpp \
+    NodeAnim.cpp \
     NodeCreationDialog.cpp \
     NodeGraph.cpp \
     NodeGraph05.cpp \
@@ -168,7 +180,6 @@ SOURCES += \
     NodeGraphTextItem.cpp \
     NodeGraphUndoRedo.cpp \
     NodeGui.cpp \
-    NodeGuiSerialization.cpp \
     NodeSettingsPanel.cpp \
     NodeViewerContext.cpp \
     PanelWidget.cpp \
@@ -178,68 +189,72 @@ SOURCES += \
     ProgressPanel.cpp \
     ProgressTaskInfo.cpp \
     ProjectGui.cpp \
-    ProjectGuiSerialization.cpp \
     PropertiesBinWrapper.cpp \
+    PyGlobalGui.cpp \
     PyGuiApp.cpp \
     PythonPanels.cpp \
     QtEnumConvert.cpp \
     RenderStatsDialog.cpp \
     ResizableMessageBox.cpp \
     RightClickableWidget.cpp \
-    RotoPanel.cpp \
     ScaleSliderQWidget.cpp \
     ScriptEditor.cpp \
     ScriptTextEdit.cpp \
     SequenceFileDialog.cpp \
-    SerializableWindow.cpp \
     Shaders.cpp \
     SpinBox.cpp \
     SpinBoxValidator.cpp \
     SplashScreen.cpp \
     Splitter.cpp \
+    StyledKnobWidgetBase.cpp \
     TabGroup.cpp \
     TabWidget.cpp \
+    TableItemAnim.cpp \
     TableModelView.cpp \
     TextRenderer.cpp \
     TimeLineGui.cpp \
     ToolButton.cpp \
-    TrackerPanel.cpp \
+    UndoCommand_qt.cpp \
     VerticalColorBar.cpp \
     ViewerGL.cpp \
     ViewerGLPrivate.cpp \
     ViewerTab.cpp \
     ViewerTab10.cpp \
-    ViewerTab20.cpp \
-    ViewerTab30.cpp \
     ViewerTab40.cpp \
+    ViewerTabNodesUI.cpp \
+    ViewerTabOverlays.cpp \
     ViewerTabPrivate.cpp \
     ViewerToolButton.cpp \
     ticks.cpp \
     NatronGui/guiapp_wrapper.cpp \
+    NatronGui/natrongui_module_wrapper.cpp \
     NatronGui/pyguiapplication_wrapper.cpp \
     NatronGui/pymodaldialog_wrapper.cpp \
     NatronGui/pypanel_wrapper.cpp \
     NatronGui/pytabwidget_wrapper.cpp \
-    NatronGui/pyviewer_wrapper.cpp \
-    NatronGui/natrongui_module_wrapper.cpp \
 
 HEADERS += \
     AboutWindow.h \
     ActionShortcuts.h \
     AddKnobDialog.h \
+    AnimItemBase.h \
     AnimatedCheckBox.h \
+    AnimationModule.h \
+    AnimationModuleBase.h \
+    AnimationModuleEditor.h \
+    AnimationModuleSelectionModel.h \
+    AnimationModuleTreeView.h \
+    AnimationModuleUndoRedo.h \
+    AnimationModuleView.h \
+    AnimationModuleViewPrivate.h \
     AutoHideToolBar.h \
     BackdropGui.h \
     Button.h \
-    ChannelsComboBox.h \
+    CachedFramesThread.h \
     ClickableLabel.h \
     ColoredFrame.h \
     ComboBox.h \
-    CurveEditor.h \
-    CurveEditorUndoRedo.h \
     CurveGui.h \
-    CurveSelection.h \
-    CurveWidget.h \
     CurveWidgetDialogs.h \
     CurveWidgetPrivate.h \
     CustomParamInteract.h \
@@ -248,16 +263,11 @@ HEADERS += \
     DockablePanelPrivate.h \
     DockablePanelTabWidget.h \
     DocumentationManager.h \
-    DopeSheet.h \
-    DopeSheetEditor.h \
-    DopeSheetEditorUndoRedo.h \
-    DopeSheetHierarchyView.h \
-    DopeSheetView.h \
     DotGui.h \
     Edge.h \
     EditExpressionDialog.h \
+    EditNodeViewerContextDialog.h \
     EditScriptDialog.h \
-    ExportGroupTemplateDialog.h \
     FileTypeMainWindow_win.h \
     FloatingWidget.h \
     GroupBoxLabel.h \
@@ -267,11 +277,12 @@ HEADERS += \
     GuiApplicationManagerPrivate.h \
     GuiDefines.h \
     GuiFwd.h \
+    GuiGLContext.h \
     GuiMacros.h \
     GuiPrivate.h \
     Histogram.h \
-    HostOverlay.h \
     InfoViewerWidget.h \
+    KnobAnim.h \
     KnobGui.h \
     KnobGuiBool.h \
     KnobGuiButton.h \
@@ -282,12 +293,15 @@ HEADERS += \
     KnobGuiFactory.h \
     KnobGuiFile.h \
     KnobGuiGroup.h \
+    KnobGuiKeyFrameMarkers.h \
     KnobGuiParametric.h \
+    KnobGuiPrivate.h \
     KnobGuiSeparator.h \
     KnobGuiString.h \
     KnobGuiTable.h \
     KnobGuiValue.h \
-    KnobUndoCommand.h \
+    KnobGuiWidgets.h \
+    KnobItemsTableGui.h \
     KnobWidgetDnD.h \
     Label.h \
     LineEdit.h \
@@ -296,10 +310,8 @@ HEADERS += \
     ManageUserParamsDialog.h \
     Menu.h \
     MessageBox.h \
-    MultiInstancePanel.h \
     NewLayerDialog.h \
-    NodeBackdropSerialization.h \
-    NodeClipBoard.h \
+    NodeAnim.h \
     NodeCreationDialog.h \
     NodeGraph.h \
     NodeGraphPrivate.h \
@@ -307,7 +319,6 @@ HEADERS += \
     NodeGraphTextItem.h \
     NodeGraphUndoRedo.h \
     NodeGui.h \
-    NodeGuiSerialization.h \
     NodeSettingsPanel.h \
     NodeViewerContext.h \
     PanelWidget.h \
@@ -317,7 +328,6 @@ HEADERS += \
     ProgressPanel.h \
     ProgressTaskInfo.h \
     ProjectGui.h \
-    ProjectGuiSerialization.h \
     PropertiesBinWrapper.h \
     PyGlobalGui.h \
     PyGuiApp.h \
@@ -328,32 +338,31 @@ HEADERS += \
     RenderStatsDialog.h \
     ResizableMessageBox.h \
     RightClickableWidget.h \
-    RotoPanel.h \
     ScaleSliderQWidget.h \
     ScriptEditor.h \
     ScriptTextEdit.h \
     SequenceFileDialog.h \
-    SerializableWindow.h \
     Shaders.h \
     SpinBox.h \
     SpinBoxValidator.h \
     SplashScreen.h \
     Splitter.h \
+    StyledKnobWidgetBase.h \
     TabGroup.h \
     TabWidget.h \
+    TableItemAnim.h \
     TableModelView.h \
     TextRenderer.h \
     TimeLineGui.h \
     ToolButton.h \
-    TrackerPanel.h \
+    UndoCommand_qt.h \
     VerticalColorBar.h \
     ViewerGL.h \
     ViewerGLPrivate.h \
     ViewerTab.h \
     ViewerTabPrivate.h \
     ViewerToolButton.h \
-    ZoomContext.h \
-    ticks.h \
+    ZoomContext.h \	
     ../libs/OpenFX/include/ofxCore.h \
     ../libs/OpenFX/include/ofxDialog.h \
     ../libs/OpenFX/include/ofxImageEffect.h \
@@ -382,7 +391,6 @@ HEADERS += \
     NatronGui/pymodaldialog_wrapper.h \
     NatronGui/pypanel_wrapper.h \
     NatronGui/pytabwidget_wrapper.h \
-    NatronGui/pyviewer_wrapper.h
 
 RESOURCES += \
     GuiResources.qrc
@@ -403,7 +411,7 @@ OTHER_FILES += \
     Resources/Images/patternSize.png \
     Resources/Images/prevUserKey.png \
     Resources/Images/searchSize.png \
-    Resources/Images/splashscreen.svg
+    Resources/Images/splashscreen.svg \
 
 macx {
 OBJECTIVE_SOURCES += \

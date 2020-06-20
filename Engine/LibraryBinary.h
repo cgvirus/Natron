@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,18 +33,21 @@
 #include <vector>
 
 #include "Global/GlobalDefines.h"
+
 #include "Engine/EngineFwd.h"
 
 
 NATRON_NAMESPACE_ENTER
+
+
 #ifdef __NATRON_OSX__
-    #define NATRON_LIBRARY_EXT "dylib"
+#  define NATRON_LIBRARY_EXT "dylib"
 #elif defined(__NATRON_LINUX__)
-    #define NATRON_LIBRARY_EXT "so"
+#  define NATRON_LIBRARY_EXT "so"
 #elif defined(__NATRON_WIN32__)
-    #define NATRON_LIBRARY_EXT "dll"
+#  define NATRON_LIBRARY_EXT "dll"
 #else
-    #error "Operating system not supported by the library loader."
+#  error "Operating system not supported by the library loader."
 #endif
 
 class LibraryBinary
@@ -72,6 +76,11 @@ public:
                   const std::vector<std::string> & funcNames);
 
     ~LibraryBinary();
+
+    void setType(LibraryTypeEnum type)
+    {
+        _type = type;
+    }
 
     bool loadBinary(const std::string & binaryPath);
 

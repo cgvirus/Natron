@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -63,13 +64,12 @@ public:
         eParamDataTypeLabel, // 10
         eParamDataTypeTextInput, // 11
         eParamDataTypeInputFile, // 12
-        eParamDataTypeOutputFile, // 13
-        eParamDataTypeDirectory, // 14
-        eParamDataTypeGroup, // 15
-        eParamDataTypePage, // 16
-        eParamDataTypeButton, // 17
-        eParamDataTypeSeparator, // 18
-        eParamDataTypeCount // 19
+        eParamDataTypeDirectory, // 13
+        eParamDataTypeGroup, // 14
+        eParamDataTypePage, // 15
+        eParamDataTypeButton, // 16
+        eParamDataTypeSeparator, // 17
+        eParamDataTypeCount // 18
     };
 
     AddKnobDialog(DockablePanel* panel,
@@ -100,7 +100,7 @@ private:
 
     static const char* dataTypeString(ParamDataTypeEnum t);
 
-    static ParamDataTypeEnum getChoiceIndexFromKnobType(KnobI* knob);
+    static ParamDataTypeEnum getChoiceIndexFromKnobType(const KnobIPtr& knob);
 
     boost::scoped_ptr<AddKnobDialogPrivate> _imp;
 };

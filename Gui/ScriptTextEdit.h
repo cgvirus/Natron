@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,6 +31,7 @@
 #if !defined(Q_MOC_RUN) && !defined(SBK_RUN)
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/weak_ptr.hpp>
 #endif
 
 CLANG_DIAG_OFF(deprecated)
@@ -40,6 +42,9 @@ CLANG_DIAG_OFF(uninitialized)
 #include <QSyntaxHighlighter>
 CLANG_DIAG_ON(deprecated)
 CLANG_DIAG_ON(uninitialized)
+
+#include "Engine/DimensionIdx.h"
+#include "Engine/ViewIdx.h"
 
 #include "Gui/GuiFwd.h"
 
@@ -80,6 +85,9 @@ GCC_DIAG_SUGGEST_OVERRIDE_ON
 public:
 
     InputScriptTextEdit(Gui* gui,
+                        const KnobGuiPtr& knobExpressionReceiver,
+                        DimSpec dimension,
+                        ViewSetSpec view,
                         QWidget* parent);
 
     virtual ~InputScriptTextEdit();
@@ -110,6 +118,9 @@ private:
     LineNumberWidget* _lineNumber;
     PySyntaxHighlighter* _highlighter;
     Gui* _gui;
+    KnobGuiWPtr _knobExpressionReceiver;
+    DimSpec _knobTargetDimension;
+    ViewSetSpec _knobTargetView;
 };
 
 class LineNumberWidget

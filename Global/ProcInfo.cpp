@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -263,7 +264,7 @@ applicationFilePath_fromArgv(const char* argv0Param)
 
 /*
  Copied from Qt qcore_mac_p.h
- Helper class that automates refernce counting for CFtypes.
+ Helper class that automates reference counting for CFtypes.
  After constructing the QCFType object, it can be copied like a
  value-based type.
 

@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,6 +37,8 @@
 
 #include <QtCore/QString>
 
+#include "Engine/DimensionIdx.h"
+#include "Engine/ViewIdx.h"
 #include "Gui/EditScriptDialog.h"
 #include "Gui/GuiFwd.h"
 
@@ -49,13 +52,15 @@ GCC_DIAG_SUGGEST_OVERRIDE_OFF
 GCC_DIAG_SUGGEST_OVERRIDE_ON
 
 private:
-    int _dimension;
+    DimSpec _dimension;
+    ViewSetSpec _view;
     KnobGuiPtr _knob;
 
 public:
 
     EditExpressionDialog(Gui* gui,
-                         int dimension,
+                         DimSpec dimension,
+                         ViewSetSpec view,
                          const KnobGuiPtr& knob,
                          QWidget* parent);
 
@@ -63,16 +68,14 @@ public:
     {
     }
 
-    int getDimension() const;
+    DimSpec getDimension() const;
 
+    ViewSetSpec getView() const;
 private:
 
-    virtual void getImportedModules(QStringList& modules) const OVERRIDE FINAL;
-    virtual void getDeclaredVariables(std::list<std::pair<QString, QString> >& variables) const OVERRIDE FINAL;
     virtual bool hasRetVariable() const OVERRIDE FINAL;
     virtual void setTitle() OVERRIDE FINAL;
-    virtual QString compileExpression(const QString& expr) OVERRIDE FINAL;
-    virtual QString getCustomHelp() OVERRIDE FINAL;
+    virtual QString compileExpression(const QString& expr, ExpressionLanguageEnum language) OVERRIDE FINAL;
 };
 
 NATRON_NAMESPACE_EXIT

@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,75 +39,6 @@
 NATRON_NAMESPACE_ENTER;
 NATRON_PYTHON_NAMESPACE_ENTER;
 
-class PyViewer
-{
-    NodeWPtr _node;
-    ViewerTab* _viewer;
-
-public:
-
-    PyViewer(const NodePtr& node);
-
-    ~PyViewer();
-
-
-    NodePtr getInternalNode() const
-    {
-        return _node.lock();
-    }
-
-    void seek(int frame);
-
-    int getCurrentFrame();
-
-    void startForward();
-
-    void startBackward();
-
-    void pause();
-
-    void redraw();
-
-    void renderCurrentFrame(bool useCache = true);
-
-    void setFrameRange(int firstFrame, int lastFrame);
-
-    void getFrameRange(int* firstFrame, int* lastFrame) const;
-
-    void setPlaybackMode(PlaybackModeEnum mode);
-
-    PlaybackModeEnum getPlaybackMode() const;
-
-    ViewerCompositingOperatorEnum getCompositingOperator() const;
-
-    void setCompositingOperator(ViewerCompositingOperatorEnum op);
-
-    int getAInput() const;
-
-    void setAInput(int index);
-
-    int getBInput() const;
-
-    void setBInput(int index);
-
-    void setChannels(DisplayChannelsEnum channels);
-
-    DisplayChannelsEnum getChannels() const;
-
-    void setProxyModeEnabled(bool enabled);
-
-    bool isProxyModeEnabled() const;
-
-    void setProxyIndex(int index);
-
-    int getProxyIndex() const;
-
-    /* Python API: do not use ViewIdx */
-    void setCurrentView(int index);
-
-    /* Python API: do not use ViewIdx */
-    int getCurrentView() const;
-};
 
 class GuiApp
     : public App
@@ -157,8 +89,7 @@ public:
     void deselectNode(Effect* effect);
     void clearSelection(Group* group = 0);
 
-    PyViewer* getViewer(const QString& scriptName) const;
-    PyViewer* getActiveViewer() const;
+    Effect* getActiveViewer() const;
     PyPanel* getUserPanel(const QString& scriptName) const;
 
     void renderBlocking(Effect* writeNode, int firstFrame, int lastFrame, int frameStep = 1);

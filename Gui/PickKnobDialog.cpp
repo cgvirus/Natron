@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -101,7 +102,7 @@ struct PickKnobDialogPrivate
         if (!selectedKnob) {
             return;
         }
-        KnobParametric* isParametric = dynamic_cast<KnobParametric*>( selectedKnob->getKnob().get() );
+        KnobParametricPtr isParametric = toKnobParametric( selectedKnob->getKnob() );
         if (isParametric) {
             useAliasCheckBox->setChecked(true);
         }
@@ -139,14 +140,14 @@ PickKnobDialog::PickKnobDialog(DockablePanel* panel,
     if (!nodePanel) {
         throw std::logic_error("PickKnobDialog::PickKnobDialog()");
     }
-    NodeGuiPtr nodeGui = nodePanel->getNode();
+    NodeGuiPtr nodeGui = nodePanel->getNodeGui();
     NodePtr node = nodeGui->getNode();
-    NodeGroup* isGroup = node->isEffectGroup();
+    NodeGroupPtr isGroup = node->isEffectNodeGroup();
     NodeCollectionPtr collec = node->getGroup();
-    NodeGroup* isCollecGroup = dynamic_cast<NodeGroup*>( collec.get() );
+    NodeGroupPtr isCollecGroup = toNodeGroup(collec);
     NodesList collectNodes = collec->getNodes();
     for (NodesList::iterator it = collectNodes.begin(); it != collectNodes.end(); ++it) {
-        if ( !(*it)->getParentMultiInstance() && (*it)->isActivated() && ( (*it)->getKnobs().size() > 0 ) ) {
+        if ((*it)->getNodeGui() && ( (*it)->getKnobs().size() > 0 ) ) {
             _imp->allNodes.push_back(*it);
         }
     }
@@ -157,8 +158,6 @@ PickKnobDialog::PickKnobDialog(DockablePanel* panel,
         NodesList groupnodes = isGroup->getNodes();
         for (NodesList::iterator it = groupnodes.begin(); it != groupnodes.end(); ++it) {
             if ( (*it)->getNodeGui() &&
-                !(*it)->getParentMultiInstance() &&
-                (*it)->isActivated() &&
                 ( (*it)->getKnobs().size() > 0 ) ) {
                 _imp->allNodes.push_back(*it);
             }
@@ -201,13 +200,13 @@ PickKnobDialog::PickKnobDialog(DockablePanel* panel,
     QObject::connect( _imp->destPageCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(onPageComboIndexChanged(int)) );
     const KnobsVec& knobs = node->getKnobs();
     for (std::size_t i = 0; i < knobs.size(); ++i) {
-        if ( knobs[i]->isUserKnob() ) {
-            KnobPagePtr isPage = boost::dynamic_pointer_cast<KnobPage>(knobs[i]);
+        if ( knobs[i]->getKnobDeclarationType() == KnobI::eKnobDeclarationTypeUser ) {
+            KnobPagePtr isPage = toKnobPage(knobs[i]);
             if (isPage) {
                 _imp->pages.push_back(isPage);
                 _imp->destPageCombo->addItem( QString::fromUtf8( isPage->getName().c_str() ) );
             } else {
-                KnobGroupPtr isGrp = boost::dynamic_pointer_cast<KnobGroup>(knobs[i]);
+                KnobGroupPtr isGrp = toKnobGroup(knobs[i]);
                 if (isGrp) {
                     _imp->groups.push_back(isGrp);
                 }
@@ -340,12 +339,12 @@ PickKnobDialog::onNodeComboEditingFinished()
     const std::vector<KnobIPtr> & knobs = selectedNode->getKnobs();
     for (U32 j = 0; j < knobs.size(); ++j) {
         if ( !knobs[j]->getIsSecret() ) {
-            KnobPage* isPage = dynamic_cast<KnobPage*>( knobs[j].get() );
-            KnobGroup* isGroup = dynamic_cast<KnobGroup*>( knobs[j].get() );
+            KnobPagePtr isPage = toKnobPage(knobs[j]);
+            KnobGroupPtr isGroup = toKnobGroup(knobs[j]);
             if (!isPage && !isGroup) {
                 QString name = QString::fromUtf8( knobs[j]->getName().c_str() );
                 bool canInsertKnob = true;
-                for (int k = 0; k < knobs[j]->getDimension(); ++k) {
+                for (int k = 0; k < knobs[j]->getNDimensions(); ++k) {
                     if ( name.isEmpty() ) {
                         canInsertKnob = false;
                     }
@@ -362,7 +361,7 @@ PickKnobDialog::onNodeComboEditingFinished()
     }
 
     _imp->onSelectedKnobChanged();
-    _imp->knobSelectionCombo->setCurrentIndex_no_emit(0);
+    _imp->knobSelectionCombo->setCurrentIndex(0, false);
 }
 
 void
@@ -385,7 +384,6 @@ PickKnobDialog::onPageComboIndexChanged(int index)
             break;
         }
     }
-
 
     for (std::vector<KnobGroupPtr>::iterator it = _imp->groups.begin(); it != _imp->groups.end(); ++it) {
         KnobPagePtr page = (*it)->getTopLevelPage();

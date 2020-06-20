@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,26 +32,50 @@ NATRON_NAMESPACE_ENTER
 
 
 CreateNodeArgs::CreateNodeArgs()
-: _properties()
+: PropertiesHolder()
 {
-    createProperties();
+
 }
 
-CreateNodeArgs::CreateNodeArgs(const std::string& pluginID,
-               const NodeCollectionPtr& group)
-: _properties()
-{
-    createProperties();
-    
-    setProperty(kCreateNodeArgsPropPluginID, pluginID);
-    if (group) {
-        setProperty(kCreateNodeArgsPropGroupContainer, group);
-    }
-}
 
 CreateNodeArgs::~CreateNodeArgs()
 {
 
+}
+
+CreateNodeArgsPtr
+CreateNodeArgs::create(const std::string& pluginID, const NodeCollectionPtr& group)
+{
+    CreateNodeArgsPtr ret = boost::make_shared<CreateNodeArgs>();
+    ret->setProperty(kCreateNodeArgsPropPluginID, pluginID);
+    if (group) {
+        ret->setProperty(kCreateNodeArgsPropGroupContainer, group);
+    }
+    return ret;
+}
+
+void
+CreateNodeArgs::initializeProperties() const
+{
+    createProperty<std::string>(kCreateNodeArgsPropPluginID, std::string());
+    createProperty<int>(kCreateNodeArgsPropPluginVersion, -1, -1);
+    createProperty<double>(kCreateNodeArgsPropNodeInitialPosition, (double)INT_MIN, (double)INT_MIN);
+    createProperty<std::string>(kCreateNodeArgsPropNodeInitialName, std::string());
+    createProperty<std::string>(kCreateNodeArgsPropPreset, std::string());
+    createProperty<std::string>(kCreateNodeArgsPropPyPlugID, std::string());
+    createProperty<std::string>(kCreateNodeArgsPropNodeInitialParamValues, std::vector<std::string>());
+    createProperty<SERIALIZATION_NAMESPACE::NodeSerializationPtr>(kCreateNodeArgsPropNodeSerialization, SERIALIZATION_NAMESPACE::NodeSerializationPtr());
+    createProperty<bool>(kCreateNodeArgsPropVolatile, false);
+    createProperty<bool>(kCreateNodeArgsPropNoNodeGUI, false);
+    createProperty<bool>(kCreateNodeArgsPropSettingsOpened, true);
+    createProperty<bool>(kCreateNodeArgsPropSubGraphOpened, true);
+    createProperty<bool>(kCreateNodeArgsPropAutoConnect, true);
+    createProperty<bool>(kCreateNodeArgsPropAllowNonUserCreatablePlugins, false);
+    createProperty<bool>(kCreateNodeArgsPropSilent, false);
+    createProperty<bool>(kCreateNodeArgsPropNodeGroupDisableCreateInitialNodes, false);
+    createProperty<bool>(kCreateNodeArgsPropAddUndoRedoCommand, true);
+    createProperty<NodeCollectionPtr>(kCreateNodeArgsPropGroupContainer, NodeCollectionPtr());
+    createProperty<NodePtr>(kCreateNodeArgsPropMetaNodeContainer, NodePtr());
 }
 
 NATRON_NAMESPACE_EXIT

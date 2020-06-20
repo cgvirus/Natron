@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,6 +36,8 @@
 #include <boost/enable_shared_from_this.hpp>
 #endif
 
+#include "Engine/TimeValue.h"
+
 #include "Gui/GuiFwd.h"
 
 
@@ -67,9 +70,9 @@ private:
 
     ProgressTaskInfo(ProgressPanel* panel,
                      const NodePtr& node,
-                     const int firstFrame,
-                     const int lastFrame,
-                     const int frameStep,
+                     const TimeValue firstFrame,
+                     const TimeValue lastFrame,
+                     const TimeValue frameStep,
                      const bool canPause,
                      const bool canCancel,
                      const QString& message,
@@ -78,13 +81,13 @@ private:
 public:
     static ProgressTaskInfoPtr create(ProgressPanel* panel,
                                                       const NodePtr& node,
-                                                      const int firstFrame,
-                                                      const int lastFrame,
-                                                      const int frameStep,
+                                                      const TimeValue firstFrame,
+                                                      const TimeValue lastFrame,
+                                                      const TimeValue frameStep,
                                                       const bool canPause,
                                                       const bool canCancel,
                                                       const QString& message,
-                                                      const ProcessHandlerPtr& process)
+                                                      const ProcessHandlerPtr& process) WARN_UNUSED_RETURN
     {
         return ProgressTaskInfoPtr( new ProgressTaskInfo(panel,
                                                                          node,
@@ -140,7 +143,7 @@ public Q_SLOTS:
 
     void onProcessCanceled();
 
-    void getTableItems(std::vector<TableItem*>* items) const;
+    TableItemPtr getTableItem() const;
 
     void createCellWidgets();
 

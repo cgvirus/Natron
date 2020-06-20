@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,8 +17,8 @@
  * along with Natron.  If not, see <http://www.gnu.org/licenses/gpl-2.0.html>
  * ***** END LICENSE BLOCK ***** */
 
-#ifndef AFTERQUITPROCESSINGI_H
-#define AFTERQUITPROCESSINGI_H
+#ifndef Engine_AfterQuitProcessingI_h
+#define Engine_AfterQuitProcessingI_h
 
 // ***** BEGIN PYTHON BLOCK *****
 // from <https://docs.python.org/3/c-api/intro.html#include-files>:
@@ -53,4 +54,4 @@ protected:
 
 NATRON_NAMESPACE_EXIT
 
-#endif // AFTERQUITPROCESSINGI_H
+#endif // Engine_AfterQuitProcessingI_h

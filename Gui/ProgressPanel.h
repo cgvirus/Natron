@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,7 +41,7 @@ CLANG_DIAG_ON(uninitialized)
 
 #include "Gui/PanelWidget.h"
 #include "Gui/GuiFwd.h"
-
+#include "Engine/TimeValue.h"
 
 NATRON_NAMESPACE_ENTER
 
@@ -57,7 +58,7 @@ GCC_DIAG_SUGGEST_OVERRIDE_ON
 
 public:
 
-    ProgressPanel(Gui* gui);
+    ProgressPanel(const std::string& scriptName, Gui* gui);
 
     virtual ~ProgressPanel();
 
@@ -67,9 +68,9 @@ public:
      * value if the task uses the progressUpdate(const int frame) function.
      **/
     void startTask( const NodePtr& node,
-                    const int firstFrame,
-                    const int lastFrame,
-                    const int frameStep,
+                    const TimeValue firstFrame,
+                    const TimeValue lastFrame,
+                    const TimeValue frameStep,
                     const bool canPause,
                     const bool canCancel,
                     const QString& message,
@@ -107,6 +108,10 @@ public:
 
     void onLastTaskAddedFinished(const ProgressTaskInfo* task);
 
+    TableModelPtr getModel() const;
+
+    virtual QIcon getIcon() const OVERRIDE FINAL;
+
 public Q_SLOTS:
 
     void onCancelTasksTriggered();
@@ -123,7 +128,7 @@ public Q_SLOTS:
 
     void onShowProgressPanelTimerTriggered();
 
-    void onItemRightClicked(TableItem* item);
+    void onItemRightClicked(QPoint globalPos, const TableItemPtr& item);
 
 Q_SIGNALS:
 
@@ -139,7 +144,7 @@ private:
     void addTaskToTable(const ProgressTaskInfoPtr& task);
 
 private:
-    // overriden from QWidget
+    // overridden from QWidget
     virtual void keyPressEvent(QKeyEvent* e) OVERRIDE FINAL;
     virtual void keyReleaseEvent(QKeyEvent* e) OVERRIDE FINAL;
     virtual void enterEvent(QEvent* e) OVERRIDE FINAL;

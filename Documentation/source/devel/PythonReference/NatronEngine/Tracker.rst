@@ -4,19 +4,18 @@
 Tracker
 *******
 
+*Inherits*: :ref:`ItemsTable<ItemsTable>`
+
 Synopsis
 --------
 
-This class is a container for :doc:`tracks<NatronEngine.Track>`
+This class is a container for :doc:`tracks<Track>`
 See :ref:`detailed<tracker.details>` description below.
 
 Functions
 ^^^^^^^^^
 
 - def :meth:`createTrack<NatronEngine.Tracker.createTrack>` ()
-- def :meth:`getTrackByName<NatronEngine.Tracker.getTrackByName>` (scriptName)
-- def :meth:`getAllTracks<NatronEngine.Tracker.getAllTracks>` ()
-- def :meth:`getSelectedTracks<NatronEngine.Tracker.getSelectedTracks>` ()
 - def :meth:`startTracking<NatronEngine.Tracker.startTracking>` (tracks, start, end, forward)
 - def :meth:`stopTracking<NatronEngine.Tracker.stopTracking>` ()
 
@@ -25,8 +24,8 @@ Functions
 Detailed Description
 --------------------
 
-The Tracker is a special class attached to :doc:`effects<NatronEngine.Effect>` that needs
-tracking capabilities. It contains all :doc:`tracks<NatronEngine.Track>` for this node
+The Tracker is a special class attached to :doc:`effects<Effect>` that needs
+tracking capabilities. It contains all :doc:`tracks<Track>` for this node
 and also allow to start and stop tracking from a Python script.
 
 Member functions description
@@ -37,27 +36,6 @@ Member functions description
     :rtype: :class:`Track<NatronEngine.Track>`
 
     Creates a new track in the tracker with default values
-
-
-.. method:: NatronEngine.Tracker.getTrackByName(scriptName)
-
-    :rtype: :class:`Track<NatronEngine.Track>`
-
-    Returns a track matching the given *scriptName* if any
-
-
-
-.. method:: NatronEngine.Tracker.getAllTracks()
-
-    :rtype: :class:`sequence`
-
-    Returns all the tracks in this Tracker.
-
-.. method:: NatronEngine.Tracker.getSelectedTracks()
-
-    :rtype: :class:`sequence`
-
-    Returns the user selected tracks
 
 .. method:: NatronEngine.Tracker.startTracking (tracks, start, end, forward)
 

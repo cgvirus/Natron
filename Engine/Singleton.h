@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,6 +33,8 @@
 #include <QtCore/QMutexLocker>
 
 #include "Engine/EngineFwd.h"
+
+NATRON_NAMESPACE_ENTER
 
 // Singleton pattern ( thread-safe) , to have 1 global ptr
 
@@ -121,5 +124,6 @@ T * Singleton<T>::instance_ = 0;
 template<class T>
 QMutex * Singleton<T>::_mutex = 0;
 
+NATRON_NAMESPACE_EXIT
 
 #endif // ifndef NATRON_ENGINE_SINGLETON_H

@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,6 +27,7 @@
 
 #include <cfloat>
 #include <cmath>
+#include <set>
 #include <algorithm> // min, max
 #include <stdexcept>
 #include <limits>
@@ -46,6 +48,7 @@ GCC_DIAG_UNUSED_PRIVATE_FIELD_ON
 #include "Engine/Settings.h"
 #include "Engine/AppManager.h"
 #include "Engine/KnobTypes.h"
+#include "Engine/Utils.h"
 
 #include "Gui/GuiApplicationManager.h"
 #include "Gui/GuiMacros.h"
@@ -57,7 +60,6 @@ GCC_DIAG_UNUSED_PRIVATE_FIELD_ON
 #define SPINBOX_MIN_WIDTH 35
 
 NATRON_NAMESPACE_ENTER
-
 
 struct SpinBoxPrivate
 {
@@ -83,8 +85,7 @@ struct SpinBoxPrivate
     bool hasChangedSinceLastValidation;
     double valueAfterLastValidation;
     bool valueInitialized; //< false when setValue has never been called yet.
-    bool useLineColor;
-    QColor lineColor;
+
     SpinBoxValidator* customValidator;
     QPoint lastMousePos;
 
@@ -103,8 +104,6 @@ struct SpinBoxPrivate
         , hasChangedSinceLastValidation(false)
         , valueAfterLastValidation(0)
         , valueInitialized(false)
-        , useLineColor(false)
-        , lineColor(Qt::black)
         , customValidator(0)
     {
     }
@@ -115,8 +114,6 @@ struct SpinBoxPrivate
 SpinBox::SpinBox(QWidget* parent,
                  SpinBoxTypeEnum type)
     : LineEdit(parent)
-    , animation(0)
-    , dirty(false)
     , ignoreWheelEvent(false)
     , _imp( new SpinBoxPrivate(type) )
 {
@@ -314,7 +311,7 @@ SpinBox::increment(int delta,
     if (!useCursorPositionIncr) {
         double val = oldVal;
         _imp->currentDelta += delta;
-        double inc = std::pow(10., shift) * _imp->currentDelta * _imp->increment / 120.;
+        double inc = ipow(10., shift) * _imp->currentDelta * _imp->increment / 120.;
         double maxiD = 0.;
         double miniD = 0.;
         switch (_imp->type) {
@@ -489,7 +486,7 @@ SpinBox::increment(int delta,
     int llpowerOfTen = dot - noDotLen; // llval must be post-multiplied by this power of ten
     assert(llpowerOfTen <= 0);
     // check that val and llval*10^llPowerOfTen are close enough (relative error should be less than 1e-8)
-    assert(std::abs(val * std::pow(10., -llpowerOfTen) - llval) / std::max( qlonglong(1), std::abs(llval) ) < 1e-8);
+    assert(std::abs(val * ipow(10., -llpowerOfTen) - llval) / std::max( qlonglong(1), std::abs(llval) ) < 1e-8);
 
 
     // If pos is at the end
@@ -527,7 +524,7 @@ SpinBox::increment(int delta,
         return;
     }
 
-    double inc = inc_int * std::pow(10., (double)powerOfTen);
+    double inc = inc_int * ipow(10., powerOfTen);
 
     // Check that we are within the authorized range
     double maxiD, miniD;
@@ -550,14 +547,14 @@ SpinBox::increment(int delta,
 
     // Adjust llval so that the increment becomes an int, and avoid rounding errors
     if (powerOfTen >= llpowerOfTen) {
-        llval += inc_int * std::pow(10., powerOfTen - llpowerOfTen);
+        llval += inc_int * ipow(10., powerOfTen - llpowerOfTen);
     } else {
-        llval *= std::pow(10., llpowerOfTen - powerOfTen);
+        llval *= ipow(10., llpowerOfTen - powerOfTen);
         llpowerOfTen -= llpowerOfTen - powerOfTen;
         llval += inc_int;
     }
     // check that val and llval*10^llPowerOfTen are still close enough (relative error should be less than 1e-8)
-    assert(std::abs(val * std::pow(10., -llpowerOfTen) - llval) / std::max( qlonglong(1), std::abs(llval) ) < 1e-8);
+    assert(std::abs(val / ipow(10., llpowerOfTen) - llval) / std::max( qlonglong(1), std::abs(llval) ) < 1e-8);
 
     QString newStr;
     newStr.setNum(llval);
@@ -824,7 +821,7 @@ SpinBox::mouseMoveEvent(QMouseEvent *e)
         if ( isEnabled() ||
              isReadOnly() ||
              !hasFocus() ) {
-            // Multiply by some amount to ressemble a wheel event
+            // Multiply by some amount to resemble a wheel event
             int delta = ( e->x() - _imp->lastMousePos.x() ) * 3;
             int shift = 0;
             if ( modCASIsShift(e) ) {
@@ -930,27 +927,6 @@ SpinBox::setIncrement(double d)
 #endif
 }
 
-void
-SpinBox::setAnimation(int i)
-{
-    if (animation != i) {
-        animation = i;
-        style()->unpolish(this);
-        style()->polish(this);
-        update();
-    }
-}
-
-void
-SpinBox::setDirty(bool d)
-{
-    if (dirty != d) {
-        dirty = d;
-        style()->unpolish(this);
-        style()->polish(this);
-        update();
-    }
-}
 
 QMenu*
 SpinBox::getRightClickMenu()
@@ -966,31 +942,20 @@ SpinBox::paintEvent(QPaintEvent* e)
 {
     LineEdit::paintEvent(e);
 
-    if (_imp->useLineColor) {
-        QPainter p(this);
-        p.setPen(_imp->lineColor);
-        int h = height() - 1;
-        p.drawLine(0, h - 1, width() - 1, h - 1);
-    }
 }
 
-void
-SpinBox::setUseLineColor(bool use,
-                         const QColor& color)
-{
-    _imp->useLineColor = use;
-    _imp->lineColor = color;
-    update();
-}
+
 
 KnobSpinBox::KnobSpinBox(QWidget* parent,
                          SpinBoxTypeEnum type,
                          const KnobGuiPtr& knob,
-                         int dimension)
+                         DimIdx dimension,
+                         ViewIdx view)
     : SpinBox(parent, type)
     , knob(knob)
     , dimension(dimension)
-    , _dnd( KnobWidgetDnD::create(knob, dimension, this) )
+    , view(view)
+    , _dnd( KnobWidgetDnD::create(knob, dimension, view, this) )
 {
 }
 
@@ -1104,7 +1069,7 @@ KnobSpinBox::focusInEvent(QFocusEvent* e)
     if (!knob) {
         return;
     }
-    std::string expr = knob->getExpression(dimension);
+    std::string expr = knob->getExpression(dimension, view);
     if ( expr.empty() ) {
         return;
     } else {

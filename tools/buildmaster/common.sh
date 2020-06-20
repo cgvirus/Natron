@@ -199,8 +199,8 @@ else
     REPO_URL=http://downloads.natron.fr
 fi
 
-THIRD_PARTY_SRC_URL=http://downloads.natron.fr/Third_Party_Sources
-THIRD_PARTY_BIN_URL=$REPO_URL/Third_Party_Binaries
+THIRD_PARTY_SRC_URL=https://sourceforge.net/projects/natron/files/Third_Party/Sources
+THIRD_PARTY_BIN_URL=https://natrongithub.github.io/files/bin
 
 
 # Threads
@@ -241,7 +241,7 @@ if [ "$PKGOS" = "Windows" ]; then
         elif [ -d "$CUSTOM_BUILDS_PATH/ffmpeg-gpl2" ]; then
             FFMPEG_PATH="$CUSTOM_BUILDS_PATH/ffmpeg-gpl2"
         else
-            echo "FFmpeg cannot be fount in $SDK_HOME/ffmpeg-gpl or $SDK_HOME/ffmpeg-gpl2"
+            echo "FFmpeg cannot be found in $SDK_HOME/ffmpeg-gpl or $SDK_HOME/ffmpeg-gpl2"
             echo "Setting FFMPEG_PATH=$SDK_HOME/ffmpeg-gpl2"
             FFMPEG_PATH="$SDK_HOME/ffmpeg-gpl2"
         fi
@@ -257,7 +257,7 @@ elif [ "$PKGOS" = "Linux" ]; then
         elif [ -d "$CUSTOM_BUILDS_PATH/ffmpeg-gpl2" ]; then
             FFMPEG_PATH="$CUSTOM_BUILDS_PATH/ffmpeg-gpl2"
         else
-            echo "FFmpeg cannot be fount in $SDK_HOME/ffmpeg-gpl or $SDK_HOME/ffmpeg-gpl2"
+            echo "FFmpeg cannot be found in $SDK_HOME/ffmpeg-gpl or $SDK_HOME/ffmpeg-gpl2"
             echo "Setting FFMPEG_PATH=$SDK_HOME/ffmpeg-gpl2"
             FFMPEG_PATH="$SDK_HOME/ffmpeg-gpl2"
         fi

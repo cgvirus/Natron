@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,6 +39,8 @@
 CLANG_DIAG_OFF(deprecated)
 CLANG_DIAG_OFF(uninitialized)
 #include <QObject>
+#include <QMessageBox>
+#include <QPixmap>
 CLANG_DIAG_ON(deprecated)
 CLANG_DIAG_ON(uninitialized)
 
@@ -45,7 +48,13 @@ CLANG_DIAG_ON(uninitialized)
 #include "Gui/GuiFwd.h"
 #include "Gui/KnobGuiContainerI.h"
 
+
 NATRON_NAMESPACE_ENTER
+
+
+#define NATRON_SETTINGS_VERTICAL_SPACING_PIXELS 3
+#define NATRON_FORM_LAYOUT_LINES_SPACING 0
+
 
 typedef std::list<std::pair<KnobIWPtr, KnobGuiPtr> > KnobsGuiMapping;
 
@@ -53,14 +62,12 @@ class KnobPageGui
 {
 public:
     QWidget* tab;
-    int currentRow;
     TabGroup* groupAsTab; //< to gather group knobs that are set as a tab
     KnobPageWPtr pageKnob;
     QGridLayout* gridLayout;
 
     KnobPageGui()
         : tab(0)
-        , currentRow(0)
         , groupAsTab(0)
         , pageKnob()
         , gridLayout(0)
@@ -68,7 +75,7 @@ public:
     }
 };
 
-typedef KnobPageGuiPtr KnobPageGuiPtr;
+typedef boost::shared_ptr<KnobPageGui> KnobPageGuiPtr;
 typedef std::map<KnobPageWPtr, KnobPageGuiPtr> PagesMap;
 
 /**
@@ -133,7 +140,7 @@ public:
      * The option QUndoStack stack can be given in parameter so that we do not make our own undo/redo stack but
      * use this one instead.
      **/
-    KnobGuiContainerHelper(KnobHolder* holder, const QUndoStackPtr& stack);
+    KnobGuiContainerHelper(const KnobHolderPtr& holder, const boost::shared_ptr<QUndoStack>& stack);
 
     virtual ~KnobGuiContainerHelper();
 
@@ -151,13 +158,12 @@ public:
     /**
      * @brief Return a list of all the internal pages which were created by the user
      **/
-    void getUserPages(std::list<KnobPage*>& userPages) const;
+    void getUserPages(std::list<KnobPagePtr>& userPages) const;
 
     /**
      * @brief Make the given page current
      **/
     void setPageActiveIndex(const KnobPagePtr& page);
-
 
     /**
      * @brief Same as getPages().size()
@@ -180,17 +186,37 @@ public:
     const KnobsGuiMapping& getKnobsMapping() const;
 
     /**
+     * @brief Returns a list of tables held by this container
+     **/
+    std::list<KnobItemsTableGuiPtr> getAllKnobItemsTables() const;
+
+    /**
+     * @brief Returns a table by its name
+     **/
+    KnobItemsTableGuiPtr getKnobItemsTable(const std::string& tableName) const;
+
+    /**
      * @brief Returns the undo/redo stack used for commands applied on knobs
      **/
     QUndoStackPtr getUndoStack() const;
 
     /**
-     * @brief Returns whether paging is enabled or not. If paging is disabled, there should only be a single page
+     * @brief When called, all knobs will go into the same page which will appear as a plain Widget and not as a tab. This must be called before
+     * calling initializeKnobs()
      **/
-    virtual bool isPagingEnabled() const
-    {
-        return true;
-    }
+    void turnOffPages();
+
+    /**
+     * @brief Configures the container so it only displays the knobs within the given group knob.
+     * The knob should have its getIsDialog() function returning true.
+     **/
+    void setAsDialogForGroup(const KnobGroupPtr& groupKnobDialog);
+    KnobGroupPtr isDialogForGroup() const;
+
+    /**
+     * @brief Returns whether paging is enabled or not. If paging is disabled, there will be only a single plain widget without header.
+     **/
+    bool isPagingEnabled() const;
 
     /**
      * @brief Returns whether the container for knobs should use a scroll-area or a plain widget
@@ -200,7 +226,7 @@ public:
         return false;
     }
 
-    //// Overriden from DockablePanelI
+    //// Overridden from DockablePanelI
 
     /**
      * @brief Removes a knob from the GUI, this should not be called directly, instead one should call KnobHolder::deleteKnob
@@ -216,9 +242,14 @@ public:
      * @brief Scan for any change on all knobs and recreate them
      **/
     virtual void refreshGuiForKnobsChanges(bool restorePageIndex) OVERRIDE FINAL;
+
+    /**
+     * @brief Removes a specific knob from the gui
+     **/
+    virtual void recreateViewerUIKnobs() OVERRIDE FINAL;
     ///// End override from DockablePanelI
 
-    //// Overriden from KnobGuiContainerI
+    //// Overridden from KnobGuiContainerI
 
     /**
      * @brief Get a pointer to the main gui
@@ -235,6 +266,17 @@ public:
      **/
     virtual void pushUndoCommand(QUndoCommand* cmd) OVERRIDE FINAL;
 
+
+    /**
+     * @brief Push a new undo command to the undo/redo stack associated to this node.
+     * The stack takes ownership of the shared pointer, so you should not hold a strong reference to the passed pointer.
+     * If no undo/redo stack is present, the command will just be redone once then destroyed.
+     **/
+    virtual void pushUndoCommand(const UndoCommandPtr& command) OVERRIDE FINAL;
+
+    // Takes ownership, command is deleted when returning call
+    void pushUndoCommand(UndoCommand* command);
+
     /**
      * @brief Returns a pointe to the KnobGui representing the given internal knob.
      **/
@@ -247,7 +289,28 @@ public:
     virtual int getItemsSpacingOnSameLine() const OVERRIDE FINAL WARN_UNUSED_RETURN;
     ///// End override from KnobGuiContainerI
 
+    static bool setLabelFromTextAndIcon(KnobClickableLabel* widget, const QString& labelText, const QString& labelIconFilePath, bool setBold);
+
+    static QPixmap getStandardIcon(QMessageBox::Icon icon, int size, QWidget* widget);
+
+    /**
+     * @brief Refresh whether a page should be made visible or not. A page is considered to be visible
+     * when at least one of its children (recursively) is not secret.
+     **/
+    virtual void refreshPageVisibility(const KnobPagePtr& page) OVERRIDE;
+
+
+    /**
+     * @brief Creates the widget that will contain the GUI for a knob
+     **/
+    virtual QWidget* createKnobHorizontalFieldContainer(QWidget* parent) const OVERRIDE WARN_UNUSED_RETURN;
+    
 protected:
+
+    /**
+     * @brief To be implemented when turnOffPages() is called, to destroy or hide the main pages widget container (the TabWidget)
+     **/
+    virtual void onPagingTurnedOff() {}
 
     /**
      * @brief Set the pointer to the current page, this should be called by the derived implementation when the current page has changed,
@@ -271,14 +334,15 @@ protected:
     virtual void refreshCurrentPage() = 0;
 
     /**
-     * @brief Creates the widget that will contain the GUI for a knob
-     **/
-    virtual QWidget* createKnobHorizontalFieldContainer(QWidget* parent) const;
-
-    /**
-     * @brief Returns the main container
+     * @brief Returns the pages container
      **/
     virtual QWidget* getPagesContainer() const = 0;
+
+    /**
+     * @brief Returns the root widget
+     **/
+    virtual QWidget* getMainContainer() const = 0;
+    virtual QLayout* getMainContainerLayout() const = 0;
 
     /**
      * @brief Creates the container for knobs within a page
@@ -291,7 +355,7 @@ protected:
     virtual void addPageToPagesContainer(const KnobPageGuiPtr& page) = 0;
 
     /**
-     * @brief Calld once a page is removed to remove it from the container (e.g: from a tabwidget)
+     * @brief Called once a page is removed to remove it from the container (e.g: from a tabwidget)
      **/
     virtual void removePageFromContainer(const KnobPageGuiPtr& page) = 0;
 
@@ -325,6 +389,11 @@ protected:
      **/
     KnobPageGuiPtr getOrCreateDefaultPage();
 
+    /**
+     * @brief If the knobs container can display a knob items table GUI, implement it to create it
+     **/
+    virtual KnobItemsTableGuiPtr createKnobItemsTable(const KnobItemsTablePtr& /*table*/, QWidget* /*parent*/) { return KnobItemsTableGuiPtr(); };
+
 private:
 
     void initializeKnobVector(const KnobsVec& knobs);
@@ -333,11 +402,9 @@ private:
 
     void clearUndoRedoStack();
 
-    KnobGuiPtr findKnobGuiOrCreate(const KnobIPtr & knob,
-                                   bool makeNewLine,
-                                   int lastKnobLineSpacing,
-                                   QWidget* lastRowWidget,
-                                   const KnobsVec& knobsOnSameLine);
+    KnobGuiPtr findKnobGuiOrCreate(const KnobIPtr &knob);
+
+    void createTabedGroupGui(const KnobGroupPtr& knob);
 
     void initializeKnobVectorInternal(const KnobsVec& siblingsVec, KnobsVec* regularKnobsVec);
 

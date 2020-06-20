@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,23 +26,14 @@
 #include "NodePrivate.h"
 
 #include <QDebug>
-#include <QtCore/QThread>
 
-#include "Engine/NodeGroup.h"
-#include "Engine/PrecompNode.h"
-#include "Engine/GroupInput.h"
 #include "Engine/GroupOutput.h"
-#include "Engine/AppInstance.h"
-#include "Engine/KnobTypes.h"
+#include "Engine/InputDescription.h"
+#include "Engine/PrecompNode.h"
 #include "Engine/Settings.h"
-#include "Engine/TimeLine.h"
-#include "Engine/Project.h"
-#include "Engine/ViewerInstance.h"
-#include "Engine/AbortableRenderInfo.h"
-#include "Engine/ThreadPool.h"
-#include "Engine/OpenGLViewerI.h"
 
 NATRON_NAMESPACE_ENTER
+
 
 /**
  * @brief Resolves links of the graph in the case of containers (that do not do any rendering but only contain nodes inside)
@@ -49,32 +41,26 @@ NATRON_NAMESPACE_ENTER
  * properly visit all nodes in the correct order
  **/
 static NodePtr
-applyNodeRedirectionsUpstream(const NodePtr& node,
-                              bool useGuiInput)
+applyNodeRedirectionsUpstream(const NodePtr& node)
 {
     if (!node) {
         return node;
     }
-    NodeGroup* isGrp = node->isEffectGroup();
+    NodeGroupPtr isGrp = node->isEffectNodeGroup();
     if (isGrp) {
         //The node is a group, instead jump directly to the output node input of the  group
-        return applyNodeRedirectionsUpstream(isGrp->getOutputNodeInput(useGuiInput), useGuiInput);
+        return applyNodeRedirectionsUpstream(isGrp->getOutputNodeInput());
     }
 
-    PrecompNode* isPrecomp = dynamic_cast<PrecompNode*>( node->getEffectInstance().get() );
-    if (isPrecomp) {
-        //The node is a precomp, instead jump directly to the output node of the precomp
-        return applyNodeRedirectionsUpstream(isPrecomp->getOutputNode(), useGuiInput);
-    }
 
-    GroupInput* isInput = dynamic_cast<GroupInput*>( node->getEffectInstance().get() );
+    GroupInputPtr isInput = node->isEffectGroupInput();
     if (isInput) {
         //The node is a group input,  jump to the corresponding input of the group
         NodeCollectionPtr collection = node->getGroup();
         assert(collection);
-        isGrp = dynamic_cast<NodeGroup*>( collection.get() );
+        isGrp = toNodeGroup(collection);
         if (isGrp) {
-            return applyNodeRedirectionsUpstream(isGrp->getRealInputForInput(useGuiInput, node), useGuiInput);
+            return applyNodeRedirectionsUpstream(isGrp->getRealInputForInput(node));
         }
     }
 
@@ -90,67 +76,41 @@ applyNodeRedirectionsUpstream(const NodePtr& node,
 static void
 applyNodeRedirectionsDownstream(int recurseCounter,
                                 const NodePtr& node,
-                                bool useGuiOutputs,
                                 NodesList& translated)
 {
-    NodeGroup* isGrp = node->isEffectGroup();
+    NodeGroupPtr isGrp = node->isEffectNodeGroup();
 
     if (isGrp) {
         //The node is a group, meaning it should not be taken into account, instead jump directly to the input nodes output of the group
         NodesList inputNodes;
-        isGrp->getInputsOutputs(&inputNodes, useGuiOutputs);
+        isGrp->getInputsOutputs(&inputNodes);
         for (NodesList::iterator it2 = inputNodes.begin(); it2 != inputNodes.end(); ++it2) {
             //Call recursively on them
-            applyNodeRedirectionsDownstream(recurseCounter + 1, *it2, useGuiOutputs, translated);
+            applyNodeRedirectionsDownstream(recurseCounter + 1, *it2, translated);
         }
 
         return;
     }
 
-    GroupOutput* isOutput = dynamic_cast<GroupOutput*>( node->getEffectInstance().get() );
+    GroupOutputPtr isOutput = node->isEffectGroupOutput();
     if (isOutput) {
         //The node is the output of a group, its outputs are the outputs of the group
         NodeCollectionPtr collection = isOutput->getNode()->getGroup();
         if (!collection) {
             return;
         }
-        isGrp = dynamic_cast<NodeGroup*>( collection.get() );
+        isGrp = toNodeGroup(collection);
         if (isGrp) {
-            NodesWList groupOutputs;
-            if (useGuiOutputs) {
-                groupOutputs = isGrp->getNode()->getGuiOutputs();
-            } else {
-                NodePtr grpNode = isGrp->getNode();
-                if (grpNode) {
-                    grpNode->getOutputs_mt_safe(groupOutputs);
-                }
+            OutputNodesMap groupOutputs;
+
+            NodePtr grpNode = isGrp->getNode();
+            if (grpNode) {
+                grpNode->getOutputs(groupOutputs);
             }
-            for (NodesWList::iterator it2 = groupOutputs.begin(); it2 != groupOutputs.end(); ++it2) {
+
+            for (OutputNodesMap::iterator it2 = groupOutputs.begin(); it2 != groupOutputs.end(); ++it2) {
                 //Call recursively on them
-                NodePtr output = it2->lock();
-                if (output) {
-                    applyNodeRedirectionsDownstream(recurseCounter + 1, output, useGuiOutputs, translated);
-                }
-            }
-        }
-
-        return;
-    }
-
-    PrecompNodePtr isInPrecomp = node->isPartOfPrecomp();
-    if ( isInPrecomp && (isInPrecomp->getOutputNode() == node) ) {
-        //This node is the output of the precomp, its outputs are the outputs of the precomp node
-        NodesWList groupOutputs;
-        if (useGuiOutputs) {
-            groupOutputs = isInPrecomp->getNode()->getGuiOutputs();
-        } else {
-            isInPrecomp->getNode()->getOutputs_mt_safe(groupOutputs);
-        }
-        for (NodesWList::iterator it2 = groupOutputs.begin(); it2 != groupOutputs.end(); ++it2) {
-            //Call recursively on them
-            NodePtr output = it2->lock();
-            if (output) {
-                applyNodeRedirectionsDownstream(recurseCounter + 1, output, useGuiOutputs, translated);
+                applyNodeRedirectionsDownstream(recurseCounter + 1, it2->first, translated);
             }
         }
 
@@ -166,16 +126,17 @@ applyNodeRedirectionsDownstream(int recurseCounter,
 void
 Node::getOutputsWithGroupRedirection(NodesList& outputs) const
 {
+#pragma message WARN("This function is confusing, we should probably re-think it")
     NodesList redirections;
     NodePtr thisShared = boost::const_pointer_cast<Node>( shared_from_this() );
 
-    applyNodeRedirectionsDownstream(0, thisShared, false, redirections);
+    applyNodeRedirectionsDownstream(0, thisShared, redirections);
     if ( !redirections.empty() ) {
         outputs.insert( outputs.begin(), redirections.begin(), redirections.end() );
     } else {
         QMutexLocker l(&_imp->outputsMutex);
-        for (NodesWList::const_iterator it = _imp->outputs.begin(); it != _imp->outputs.end(); ++it) {
-            NodePtr output = it->lock();
+        for (InternalOutputNodesMap::const_iterator it = _imp->outputs.begin(); it != _imp->outputs.end(); ++it) {
+            NodePtr output = it->first.lock();
             if (output) {
                 outputs.push_back(output);
             }
@@ -187,65 +148,48 @@ Node::getOutputsWithGroupRedirection(NodesList& outputs) const
 NodePtr
 Node::getInput(int index) const
 {
-    return getInputInternal(false, true, index);
+    if (!_imp->effect) {
+        return NodePtr();
+    }
+
+    return getInputInternal(true, index);
 }
 
 NodePtr
-Node::getInputInternal(bool useGuiInput,
-                       bool useGroupRedirections,
+Node::getInputInternal(bool useGroupRedirections,
                        int index) const
 {
-    NodePtr parent = _imp->multiInstanceParent.lock();
-
-    if (parent) {
-        return parent->getInput(index);
-    }
-    if (!_imp->inputsInitialized) {
-        qDebug() << "Node::getInput(): inputs not initialized";
-    }
     QMutexLocker l(&_imp->inputsMutex);
     if ( ( index >= (int)_imp->inputs.size() ) || (index < 0) ) {
         return NodePtr();
     }
 
-    NodePtr ret =  useGuiInput ? _imp->guiInputs[index].lock() : _imp->inputs[index].lock();
+    NodePtr ret =  _imp->inputs[index].lock();
     if (ret && useGroupRedirections) {
-        ret = applyNodeRedirectionsUpstream(ret, useGuiInput);
+        ret = applyNodeRedirectionsUpstream(ret);
     }
 
     return ret;
 }
 
 NodePtr
-Node::getGuiInput(int index) const
-{
-    return getInputInternal(true, true, index);
-}
-
-NodePtr
 Node::getRealInput(int index) const
 {
-    return getInputInternal(false, false, index);
+    return getInputInternal(false, index);
 }
 
-NodePtr
-Node::getRealGuiInput(int index) const
+std::list<int>
+Node::getInputIndicesConnectedToThisNode(const NodeConstPtr& outputNode) const
 {
-    return getInputInternal(true, false, index);
-}
-
-int
-Node::getInputIndex(const Node* node) const
-{
-    QMutexLocker l(&_imp->inputsMutex);
-
-    for (U32 i = 0; i < _imp->inputs.size(); ++i) {
-        if (_imp->inputs[i].lock().get() == node) {
-            return i;
-        }
+    std::list<int> ret;
+    QMutexLocker l(&_imp->outputsMutex);
+    NodePtr tmp = boost::const_pointer_cast<Node>(outputNode);
+    InternalOutputNodesMap::const_iterator found = _imp->outputs.find(tmp);
+    if (found != _imp->outputs.end()) {
+        ret = found->second;
+        return ret;
     }
-
-    return -1;
+    return ret;
 }
 
 const std::vector<NodeWPtr> &
@@ -253,41 +197,13 @@ Node::getInputs() const
 {
     ////Only called by the main-thread
     assert( QThread::currentThread() == qApp->thread() );
-    assert(_imp->inputsInitialized);
-
-    NodePtr parent = _imp->multiInstanceParent.lock();
-    if (parent) {
-        return parent->getInputs();
-    }
-
     return _imp->inputs;
 }
 
-const std::vector<NodeWPtr> &
-Node::getGuiInputs() const
-{
-    ////Only called by the main-thread
-    assert( QThread::currentThread() == qApp->thread() );
-    assert(_imp->inputsInitialized);
-
-    NodePtr parent = _imp->multiInstanceParent.lock();
-    if (parent) {
-        return parent->getGuiInputs();
-    }
-
-    return _imp->guiInputs;
-}
 
 std::vector<NodeWPtr>
 Node::getInputs_copy() const
 {
-    assert(_imp->inputsInitialized);
-
-    NodePtr parent = _imp->multiInstanceParent.lock();
-    if (parent) {
-        return parent->getInputs();
-    }
-
     QMutexLocker l(&_imp->inputsMutex);
 
     return _imp->inputs;
@@ -296,48 +212,37 @@ Node::getInputs_copy() const
 std::string
 Node::getInputLabel(int inputNb) const
 {
-    assert(_imp->inputsInitialized);
-
-    QMutexLocker l(&_imp->inputsLabelsMutex);
-    if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputLabels.size() ) ) {
+    QMutexLocker l(&_imp->inputsMutex);
+    if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputDescriptions.size() ) ) {
         throw std::invalid_argument("Index out of range");
     }
 
-    return _imp->inputLabels[inputNb];
+    return _imp->inputDescriptions[inputNb]->getPropertyUnsafe<std::string>(kInputDescPropLabel);
 }
 
 std::string
 Node::getInputHint(int inputNb) const
 {
-    assert(_imp->inputsInitialized);
 
-    QMutexLocker l(&_imp->inputsLabelsMutex);
-    if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputHints.size() ) ) {
+    QMutexLocker l(&_imp->inputsMutex);
+    if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputDescriptions.size() ) ) {
         throw std::invalid_argument("Index out of range");
     }
 
-    return _imp->inputHints[inputNb];
+    return _imp->inputDescriptions[inputNb]->getPropertyUnsafe<std::string>(kInputDescPropHint);
 }
 
 void
 Node::setInputLabel(int inputNb, const std::string& label)
 {
     {
-        QMutexLocker l(&_imp->inputsLabelsMutex);
-        if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputLabels.size() ) ) {
+        QMutexLocker l(&_imp->inputsMutex);
+        if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputDescriptions.size() ) ) {
             throw std::invalid_argument("Index out of range");
         }
-        _imp->inputLabels[inputNb] = label;
+        _imp->inputDescriptions[inputNb]->setProperty(kInputDescPropLabel, label);
     }
-    std::map<int, MaskSelector>::iterator foundMask = _imp->maskSelectors.find(inputNb);
-    if (foundMask != _imp->maskSelectors.end()) {
-        foundMask->second.channel.lock()->setLabel(label);
-    }
-
-    std::map<int, ChannelSelector>::iterator foundChannel = _imp->channelsSelectors.find(inputNb);
-    if (foundChannel != _imp->channelsSelectors.end()) {
-        foundChannel->second.layer.lock()->setLabel(label + std::string(" Layer"));
-    }
+    _imp->effect->onInputLabelChanged(inputNb, label);
 
     Q_EMIT inputEdgeLabelChanged(inputNb, QString::fromUtf8(label.c_str()));
 }
@@ -346,48 +251,185 @@ void
 Node::setInputHint(int inputNb, const std::string& hint)
 {
     {
-        QMutexLocker l(&_imp->inputsLabelsMutex);
-        if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputHints.size() ) ) {
+        QMutexLocker l(&_imp->inputsMutex);
+        if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputDescriptions.size() ) ) {
             throw std::invalid_argument("Index out of range");
         }
-        _imp->inputHints[inputNb] = hint;
+        _imp->inputDescriptions[inputNb]->setProperty(kInputDescPropHint, hint);
     }
 }
 
 bool
 Node::isInputVisible(int inputNb) const
 {
-    QMutexLocker k(&_imp->inputsMutex);
-    if (inputNb >= 0 && inputNb < (int)_imp->inputsVisibility.size()) {
-        return _imp->inputsVisibility[inputNb];
-    } else {
-        throw std::invalid_argument("Index out of range");
+    QMutexLocker l(&_imp->inputsMutex);
+    if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputDescriptions.size() ) ) {
+        return false;
     }
-    return false;
+
+    return _imp->inputDescriptions[inputNb]->getPropertyUnsafe<bool>(kInputDescPropIsVisible);
 }
 
 void
 Node::setInputVisible(int inputNb, bool visible)
 {
     {
-        QMutexLocker k(&_imp->inputsMutex);
-        if (inputNb >= 0 && inputNb < (int)_imp->inputsVisibility.size()) {
-            _imp->inputsVisibility[inputNb] = visible;
-        } else {
+        QMutexLocker l(&_imp->inputsMutex);
+        if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputDescriptions.size() ) ) {
             throw std::invalid_argument("Index out of range");
         }
+        _imp->inputDescriptions[inputNb]->setProperty(kInputDescPropIsVisible, visible);
     }
     Q_EMIT inputVisibilityChanged(inputNb);
+}
+
+ImageFieldExtractionEnum
+Node::getInputFieldExtraction(int inputNb) const
+{
+    QMutexLocker l(&_imp->inputsMutex);
+    if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputDescriptions.size() ) ) {
+        return eImageFieldExtractionDouble;
+    }
+
+    return _imp->inputDescriptions[inputNb]->getPropertyUnsafe<ImageFieldExtractionEnum>(kInputDescPropFieldingSupport);
+}
+
+std::bitset<4>
+Node::getSupportedComponents(int inputNb) const
+{
+
+    // For a Read or Write node, actually return the bits from the embedded plug-in
+    ReadNodePtr isRead = toReadNode(_imp->effect);
+    WriteNodePtr isWrite = toWriteNode(_imp->effect);
+    NodePtr embeddedNode;
+    if (isRead) {
+        embeddedNode = isRead->getEmbeddedReader();
+    } else if (isWrite) {
+        embeddedNode = isWrite->getEmbeddedWriter();
+    }
+
+    if (embeddedNode) {
+        return embeddedNode->getSupportedComponents(inputNb);
+    }
+
+    if (inputNb == -1) {
+        PluginPtr plugin = getPlugin();
+        return plugin->getPropertyUnsafe<std::bitset<4> >(kNatronPluginPropOutputSupportedComponents);
+    } else {
+        QMutexLocker l(&_imp->inputsMutex);
+        if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputDescriptions.size() ) ) {
+            return std::bitset<4>();
+        }
+
+        return _imp->inputDescriptions[inputNb]->getPropertyUnsafe<std::bitset<4> >(kInputDescPropSupportedComponents);
+    }
+}
+
+bool
+Node::isInputHostDescribed(int inputNb) const
+{
+    QMutexLocker l(&_imp->inputsMutex);
+    if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputDescriptions.size() ) ) {
+        return false;
+    }
+
+    return _imp->inputDescriptions[inputNb]->getPropertyUnsafe<bool>(kInputDescPropIsHostInput);
+}
+
+bool
+Node::isInputMask(int inputNb) const
+{
+    QMutexLocker l(&_imp->inputsMutex);
+    if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputDescriptions.size() ) ) {
+        return false;
+    }
+
+    return _imp->inputDescriptions[inputNb]->getPropertyUnsafe<bool>(kInputDescPropIsMask);
+}
+
+bool
+Node::isInputOptional(int inputNb) const
+{
+    QMutexLocker l(&_imp->inputsMutex);
+    if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputDescriptions.size() ) ) {
+        return false;
+    }
+
+    return _imp->inputDescriptions[inputNb]->getPropertyUnsafe<bool>(kInputDescPropIsOptional);
+}
+
+bool
+Node::isTilesSupportedByInput(int inputNb) const
+{
+    QMutexLocker l(&_imp->inputsMutex);
+    if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputDescriptions.size() ) ) {
+        return true;
+    }
+
+    return _imp->inputDescriptions[inputNb]->getPropertyUnsafe<bool>(kInputDescPropSupportsTiles);
+}
+
+bool
+Node::isTemporalAccessSupportedByInput(int inputNb) const
+{
+    QMutexLocker l(&_imp->inputsMutex);
+    if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputDescriptions.size() ) ) {
+        return false;
+    }
+
+    return _imp->inputDescriptions[inputNb]->getPropertyUnsafe<bool>(kInputDescPropSupportsTemporal);
+}
+
+bool
+Node::canInputReceiveDistortion(int inputNb) const
+{
+    QMutexLocker l(&_imp->inputsMutex);
+    if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputDescriptions.size() ) ) {
+        return false;
+    }
+
+    return _imp->inputDescriptions[inputNb]->getPropertyUnsafe<bool>(kInputDescPropCanReceiveDistortion);
+}
+
+bool
+Node::canInputReceiveTransform3x3(int inputNb) const
+{
+    QMutexLocker l(&_imp->inputsMutex);
+    if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputDescriptions.size() ) ) {
+        return false;
+    }
+
+    return _imp->inputDescriptions[inputNb]->getPropertyUnsafe<bool>(kInputDescPropCanReceiveTransform3x3);
+}
+
+bool
+Node::getInputDescription(int inputNb, InputDescription* desc) const
+{
+    QMutexLocker l(&_imp->inputsMutex);
+    if ( (inputNb < 0) || ( inputNb >= (int)_imp->inputDescriptions.size() ) ) {
+        return false;
+    }
+    desc->cloneProperties(*_imp->inputDescriptions[inputNb]);
+    return true;
+}
+
+int
+Node::getNInputs() const
+{
+    QMutexLocker l(&_imp->inputsMutex);
+    return _imp->inputs.size();
 }
 
 
 int
 Node::getInputNumberFromLabel(const std::string& inputLabel) const
 {
-    assert(_imp->inputsInitialized);
-    QMutexLocker l(&_imp->inputsLabelsMutex);
-    for (U32 i = 0; i < _imp->inputLabels.size(); ++i) {
-        if (_imp->inputLabels[i] == inputLabel) {
+    if (inputLabel.empty()) {
+        return -1;
+    }
+    QMutexLocker l(&_imp->inputsMutex);
+    for (U32 i = 0; i < _imp->inputDescriptions.size(); ++i) {
+        if (_imp->inputDescriptions[i]->getPropertyUnsafe<std::string>(kInputDescPropLabel) == inputLabel) {
             return i;
         }
     }
@@ -395,107 +437,106 @@ Node::getInputNumberFromLabel(const std::string& inputLabel) const
     return -1;
 }
 
-bool
-Node::isInputOnlyAlpha(int inputNb) const
+void
+Node::addInput(const InputDescriptionPtr& description)
 {
-    assert(_imp->inputsInitialized);
-
-    const std::list<ImagePlaneDesc>& inputSupportedComps = _imp->inputsComponents[inputNb];
-    return (inputSupportedComps.size() == 1 && inputSupportedComps.front().getNumComponents() == 1);
-}
-
-int
-Node::getNInputs() const
-{
-    ///MT-safe, never changes
-    assert(_imp->effect);
-
-    return _imp->effect->getNInputs();
+    insertInput(-1, description);
 }
 
 void
-Node::initializeInputs()
+Node::insertInput(int index, const InputDescriptionPtr& description)
 {
-    ////Only called by the main-thread
-    assert( QThread::currentThread() == qApp->thread() );
-    const int inputCount = getNInputs();
-    InputsV oldInputs;
+    beginInputEdition();
     {
-        QMutexLocker k(&_imp->inputsLabelsMutex);
-        _imp->inputLabels.resize(inputCount);
-        _imp->inputHints.resize(inputCount);
-        for (int i = 0; i < inputCount; ++i) {
-            _imp->inputLabels[i] = _imp->effect->getInputLabel(i);
-            _imp->inputHints[i] = _imp->effect->getInputHint(i);
-        }
-    }
-    {
-        QMutexLocker l(&_imp->lastRenderStartedMutex);
-        _imp->inputIsRenderingCounter.resize(inputCount);
-    }
-    {
-        QMutexLocker l(&_imp->inputsMutex);
-        oldInputs = _imp->inputs;
-
-        std::vector<bool> oldInputsVisibility = _imp->inputsVisibility;
-        _imp->inputIsRenderingCounter.resize(inputCount);
-        _imp->inputs.resize(inputCount);
-        _imp->guiInputs.resize(inputCount);
-        _imp->inputsVisibility.resize(inputCount);
-        ///if we added inputs, just set to NULL the new inputs, and add their label to the labels map
-        for (int i = 0; i < inputCount; ++i) {
-            if ( i < (int)oldInputs.size() ) {
-                _imp->inputs[i] = oldInputs[i];
-                _imp->guiInputs[i] = oldInputs[i];
-            } else {
-                _imp->inputs[i].reset();
-                _imp->guiInputs[i].reset();
+        QMutexLocker k(&_imp->inputsMutex);
+        _imp->inputIsRenderingCounter.resize(_imp->inputIsRenderingCounter.size() + 1);
+        if (index >= (int)_imp->inputs.size() || index == -1) {
+            _imp->inputs.push_back(NodePtr());
+            _imp->inputDescriptions.push_back(description);
+        } else {
+            {
+                InputsV::iterator it = _imp->inputs.begin();
+                std::advance(it, index);
+                _imp->inputs.insert(it, NodePtr());
             }
-            if (i < (int) oldInputsVisibility.size()) {
-                _imp->inputsVisibility[i] = oldInputsVisibility[i];
-            } else {
-                _imp->inputsVisibility[i] = true;
+            {
+                std::vector<InputDescriptionPtr>::iterator it = _imp->inputDescriptions.begin();
+                std::advance(it, index);
+                _imp->inputDescriptions.insert(it, description);
             }
         }
-
-
-        ///Set the components the plug-in accepts
-        _imp->inputsComponents.resize(inputCount);
-        for (int i = 0; i < inputCount; ++i) {
-            _imp->inputsComponents[i].clear();
-            if ( _imp->effect->isInputMask(i) ) {
-                //Force alpha for masks
-                _imp->inputsComponents[i].push_back( ImagePlaneDesc::getAlphaComponents() );
-            } else {
-                _imp->effect->addAcceptedComponents(i, &_imp->inputsComponents[i]);
-            }
-        }
-        _imp->outputComponents.clear();
-        _imp->effect->addAcceptedComponents(-1, &_imp->outputComponents);
     }
-    _imp->inputsInitialized = true;
+    ++_imp->hasModifiedInputsDescription;
+    endInputEdition(true);
 
-    Q_EMIT inputsInitialized();
-} // Node::initializeInputs
 
+}
+
+void
+Node::changeInputDescription(int inputNb, const InputDescriptionPtr& description)
+{
+    beginInputEdition();
+    {
+        QMutexLocker k(&_imp->inputsMutex);
+        if (inputNb < 0 || inputNb >= (int)_imp->inputs.size()) {
+            return;
+        }
+        _imp->inputDescriptions[inputNb] = description;
+    }
+    _imp->inputsModified.insert(inputNb);
+    ++_imp->hasModifiedInputsDescription;
+    endInputEdition(true);
+
+}
+
+void
+Node::removeInput(int inputNb)
+{
+    beginInputEdition();
+    {
+        QMutexLocker k(&_imp->inputsMutex);
+        if (inputNb < 0 || inputNb >= (int)_imp->inputs.size()) {
+            return;
+        }
+        _imp->inputIsRenderingCounter.resize(_imp->inputIsRenderingCounter.size() - 1);
+        {
+            InputsV::iterator it = _imp->inputs.begin();
+            std::advance(it, inputNb);
+            _imp->inputs.erase(it);
+        }
+        {
+            std::vector<InputDescriptionPtr>::iterator it = _imp->inputDescriptions.begin();
+            std::advance(it, inputNb);
+            _imp->inputDescriptions.erase(it);
+        }
+    }
+    ++_imp->hasModifiedInputsDescription;
+    endInputEdition(true);
+}
+
+void
+Node::removeAllInputs()
+{
+    beginInputEdition();
+    {
+        QMutexLocker k(&_imp->inputsMutex);
+        _imp->inputs.clear();
+        _imp->inputDescriptions.clear();
+        _imp->inputIsRenderingCounter.clear();
+    }
+    ++_imp->hasModifiedInputsDescription;
+    endInputEdition(true);
+}
 
 bool
 Node::isInputConnected(int inputNb) const
 {
-    assert(_imp->inputsInitialized);
-
     return getInput(inputNb) != NULL;
 }
 
 bool
 Node::hasInputConnected() const
 {
-    assert(_imp->inputsInitialized);
-
-    NodePtr parent = _imp->multiInstanceParent.lock();
-    if (parent) {
-        return parent->hasInputConnected();
-    }
     QMutexLocker l(&_imp->inputsMutex);
     for (U32 i = 0; i < _imp->inputs.size(); ++i) {
         if ( _imp->inputs[i].lock() ) {
@@ -507,14 +548,14 @@ Node::hasInputConnected() const
     return false;
 }
 
-
 bool
 Node::hasMandatoryInputDisconnected() const
 {
     QMutexLocker l(&_imp->inputsMutex);
 
+    assert(_imp->inputs.size() == _imp->inputDescriptions.size());
     for (U32 i = 0; i < _imp->inputs.size(); ++i) {
-        if ( !_imp->inputs[i].lock() && !_imp->effect->isInputOptional(i) ) {
+        if ( !_imp->inputs[i].lock() && !_imp->inputDescriptions[i]->getPropertyUnsafe<bool>(kInputDescPropIsOptional) ) {
             return true;
         }
     }
@@ -540,29 +581,17 @@ bool
 Node::hasOutputConnected() const
 {
     ////Only called by the main-thread
-    NodePtr parent = _imp->multiInstanceParent.lock();
 
-    if (parent) {
-        return parent->hasOutputConnected();
-    }
     if ( isOutputNode() ) {
         return true;
     }
     if ( QThread::currentThread() == qApp->thread() ) {
-        if (_imp->outputs.size() == 1) {
-            NodePtr output = _imp->outputs.front().lock();
-
-            return !( output->isTrackerNodePlugin() && output->isMultiInstance() );
-        } else if (_imp->outputs.size() > 1) {
+        if (_imp->outputs.size() > 0) {
             return true;
         }
     } else {
         QMutexLocker l(&_imp->outputsMutex);
-        if (_imp->outputs.size() == 1) {
-            NodePtr output = _imp->outputs.front().lock();
-
-            return !( output->isTrackerNodePlugin() && output->isMultiInstance() );
-        } else if (_imp->outputs.size() > 1) {
+        if (_imp->outputs.size() > 0) {
             return true;
         }
     }
@@ -571,108 +600,56 @@ Node::hasOutputConnected() const
 }
 
 bool
-Node::checkIfConnectingInputIsOk(Node* input) const
+Node::checkIfConnectingInputIsOk(const NodePtr& input) const
 {
     ////Only called by the main-thread
-    assert( QThread::currentThread() == qApp->thread() );
-    if (!input || input == this) {
+    if (!input || input.get() == this) {
         return false;
     }
-    bool found;
-    input->isNodeUpstream(this, &found);
-
+    bool found = input->isNodeUpstream(shared_from_this());
     return !found;
 }
 
-void
-Node::isNodeUpstream(const Node* input,
-                     bool* ok) const
+bool
+Node::isNodeUpstreamInternal(const NodeConstPtr& input, std::set<NodeConstPtr>& markedNodes) const
 {
-    ////Only called by the main-thread
-    assert( QThread::currentThread() == qApp->thread() );
-
     if (!input) {
-        *ok = false;
-
-        return;
+        return false;
     }
 
-    ///No need to lock guiInputs is only written to by the main-thread
+    NodeConstPtr thisShared = shared_from_this();
+    std::pair<std::set<NodeConstPtr>::iterator, bool> insertOk = markedNodes.insert(thisShared);
+    if (!insertOk.second) {
+        return false;
+    }
 
-    for (U32 i = 0; i  < _imp->inputs.size(); ++i) {
-        if (_imp->inputs[i].lock().get() == input) {
-            *ok = true;
 
-            return;
+    std::vector<NodeWPtr> inputs = getInputs_copy();
+    for (std::size_t i = 0; i  < inputs.size(); ++i) {
+        if (inputs[i].lock() == input) {
+            return true;
         }
     }
-    *ok = false;
-    for (U32 i = 0; i  < _imp->inputs.size(); ++i) {
-        NodePtr in = _imp->inputs[i].lock();
+
+    for (std::size_t i = 0; i  < inputs.size(); ++i) {
+        NodePtr in = inputs[i].lock();
         if (in) {
-            in->isNodeUpstream(input, ok);
-            if (*ok) {
-                return;
+            if (in->isNodeUpstreamInternal(input, markedNodes)) {
+                return true;
             }
         }
     }
+    return false;
 }
 
-
-
-static Node::CanConnectInputReturnValue
-checkCanConnectNoMultiRes(const Node* output,
-                          const NodePtr& input)
+bool
+Node::isNodeUpstream(const NodeConstPtr& input) const
 {
-    //http://openfx.sourceforge.net/Documentation/1.3/ofxProgrammingReference.html#kOfxImageEffectPropSupportsMultiResolution
-    //Check that the input has the same RoD that another input and that its rod is set to 0,0
-    RenderScale scale(1.);
-    RectD rod;
-    bool isProjectFormat;
-    StatusEnum stat = input->getEffectInstance()->getRegionOfDefinition_public(input->getHashValue(),
-                                                                               output->getApp()->getTimeLine()->currentFrame(),
-                                                                               scale,
-                                                                               ViewIdx(0),
-                                                                               &rod, &isProjectFormat);
-
-    if ( (stat == eStatusFailed) && !rod.isNull() ) {
-        return Node::eCanConnectInput_givenNodeNotConnectable;
-    }
-    if ( (rod.x1 != 0) || (rod.y1 != 0) ) {
-        return Node::eCanConnectInput_multiResNotSupported;
-    }
-
-    // Commented-out: Some Furnace plug-ins from The Foundry (e.g F_Steadiness) are not supporting multi-resolution but actually produce an output
-    // with a RoD different from the input
-
-    /*RectD outputRod;
-       stat = output->getEffectInstance()->getRegionOfDefinition_public(output->getHashValue(), output->getApp()->getTimeLine()->currentFrame(), scale, ViewIdx(0), &outputRod, &isProjectFormat);
-       Q_UNUSED(stat);
-
-       if ( !outputRod.isNull() && (rod != outputRod) ) {
-        return Node::eCanConnectInput_multiResNotSupported;
-       }*/
-
-    for (int i = 0; i < output->getNInputs(); ++i) {
-        NodePtr inputNode = output->getInput(i);
-        if (inputNode) {
-            RectD inputRod;
-            stat = inputNode->getEffectInstance()->getRegionOfDefinition_public(inputNode->getHashValue(),
-                                                                                output->getApp()->getTimeLine()->currentFrame(),
-                                                                                scale,
-                                                                                ViewIdx(0),
-                                                                                &inputRod, &isProjectFormat);
-            if ( (stat == eStatusFailed) && !inputRod.isNull() ) {
-                return Node::eCanConnectInput_givenNodeNotConnectable;
-            }
-            if (inputRod != rod) {
-                return Node::eCanConnectInput_multiResNotSupported;
-            }
-        }
-    }
-
-    return Node::eCanConnectInput_ok;
+    std::set<NodeConstPtr> markedNodes;
+    return isNodeUpstreamInternal(input, markedNodes);
 }
+
+
 
 Node::CanConnectInputReturnValue
 Node::canConnectInput(const NodePtr& input,
@@ -686,39 +663,23 @@ Node::canConnectInput(const NodePtr& input,
     ///Check for invalid index
     {
         QMutexLocker l(&_imp->inputsMutex);
-        if ( (inputNumber < 0) || ( inputNumber >= (int)_imp->guiInputs.size() ) ) {
+        if ( (inputNumber < 0) || ( inputNumber >= (int)_imp->inputs.size() ) ) {
             return eCanConnectInput_indexOutOfRange;
         }
-        if ( _imp->guiInputs[inputNumber].lock() ) {
+        if ( _imp->inputs[inputNumber].lock() ) {
             return eCanConnectInput_inputAlreadyConnected;
         }
     }
 
-    NodeGroup* isGrp = input->isEffectGroup();
-    if ( isGrp && !isGrp->getOutputNode(true) ) {
+    NodeGroupPtr isGrp = input->isEffectNodeGroup();
+    if ( isGrp && !isGrp->getOutputNode() ) {
         return eCanConnectInput_groupHasNoOutput;
     }
 
-    if ( getParentMultiInstance() || input->getParentMultiInstance() ) {
-        return eCanConnectInput_inputAlreadyConnected;
-    }
 
     ///Applying this connection would create cycles in the graph
-    if ( !checkIfConnectingInputIsOk( input.get() ) ) {
+    if ( !checkIfConnectingInputIsOk( input ) ) {
         return eCanConnectInput_graphCycles;
-    }
-
-    if ( _imp->effect->isInputRotoBrush(inputNumber) ) {
-        qDebug() << "Debug: Attempt to connect " << input->getScriptName_mt_safe().c_str() << " to Roto brush";
-
-        return eCanConnectInput_indexOutOfRange;
-    }
-
-    if ( !_imp->effect->supportsMultiResolution() ) {
-        CanConnectInputReturnValue ret = checkCanConnectNoMultiRes(this, input);
-        if (ret != eCanConnectInput_ok) {
-            return ret;
-        }
     }
 
     {
@@ -728,10 +689,10 @@ Node::canConnectInput(const NodePtr& input,
         double inputFPS = input->getEffectInstance()->getFrameRate();
         QMutexLocker l(&_imp->inputsMutex);
 
-        for (InputsV::const_iterator it = _imp->guiInputs.begin(); it != _imp->guiInputs.end(); ++it) {
+        for (InputsV::const_iterator it = _imp->inputs.begin(); it != _imp->inputs.end(); ++it) {
             NodePtr node = it->lock();
             if (node) {
-                if ( !_imp->effect->supportsMultipleClipPARs() ) {
+                if ( !_imp->effect->isMultipleInputsWithDifferentPARSupported() ) {
                     if (node->getEffectInstance()->getAspectRatio(-1) != inputPAR) {
                         return eCanConnectInput_differentPars;
                     }
@@ -748,211 +709,162 @@ Node::canConnectInput(const NodePtr& input,
 } // Node::canConnectInput
 
 bool
-Node::connectInput(const NodePtr & input,
-                   int inputNumber)
+Node::canOthersConnectToThisNode() const
 {
-    assert(_imp->inputsInitialized);
-    assert(input);
-
-    ///Check for cycles: they are forbidden in the graph
-    if ( !checkIfConnectingInputIsOk( input.get() ) ) {
+    if (isBeingDestroyed()) {
         return false;
     }
-    if ( _imp->effect->isInputRotoBrush(inputNumber) ) {
-        qDebug() << "Debug: Attempt to connect " << input->getScriptName_mt_safe().c_str() << " to Roto brush";
+    if ( isEffectBackdrop() ) {
+        return false;
+    } else if ( isEffectGroupOutput() ) {
+        return false;
+    } else if ( _imp->effect->isWriter() && (_imp->effect->getSequentialRenderSupport() == eSequentialPreferenceOnlySequential) ) {
+        return false;
+    }
+    ///In debug mode only allow connections to Writer nodes
+# ifdef DEBUG
+    return !isEffectViewerInstance();
+# else // !DEBUG
+    return !isEffectViewerInstance() /* && !_imp->effect->isWriter()*/;
+# endif // !DEBUG
+}
 
+
+bool
+Node::connectInput(const NodePtr & input, int inputNumber)
+{
+
+    if (!input) {
         return false;
     }
 
-    ///For effects that do not support multi-resolution, make sure the input effect is correct
-    ///otherwise the rendering might crash
-    if ( !_imp->effect->supportsMultiResolution() && !getApp()->getProject()->isLoadingProject() ) {
-        CanConnectInputReturnValue ret = checkCanConnectNoMultiRes(this, input);
-        if (ret != eCanConnectInput_ok) {
-            return false;
-        }
-    }
 
-    bool useGuiInputs = isNodeRendering();
-    _imp->effect->abortAnyEvaluation();
-
-    {
-        ///Check for invalid index
-        QMutexLocker l(&_imp->inputsMutex);
-        if ( (inputNumber < 0) ||
-             ( inputNumber >= (int)_imp->inputs.size() ) ||
-             ( !useGuiInputs && _imp->inputs[inputNumber].lock() ) ||
-             ( useGuiInputs && _imp->guiInputs[inputNumber].lock() ) ) {
-            return false;
-        }
-
-        ///Set the input
-        if (!useGuiInputs) {
-            _imp->inputs[inputNumber] = input;
-            _imp->guiInputs[inputNumber] = input;
-        } else {
-            _imp->guiInputs[inputNumber] = input;
-        }
-        input->connectOutput( useGuiInputs, shared_from_this() );
-    }
-
-    getApp()->recheckInvalidExpressions();
-
-    ///Get notified when the input name has changed
-    QObject::connect( input.get(), SIGNAL(labelChanged(QString)), this, SLOT(onInputLabelChanged(QString)) );
-
-    ///Notify the GUI
-    Q_EMIT inputChanged(inputNumber);
-    bool mustCallEnd = false;
-
-    if (!useGuiInputs) {
-        ///Call the instance changed action with a reason clip changed
-        beginInputEdition();
-        mustCallEnd = true;
-        onInputChanged(inputNumber);
-    }
-
-    bool creatingNodeTree = getApp()->isCreatingNodeTree();
-    if (!creatingNodeTree) {
-        ///Recompute the hash
-        computeHash();
-    }
-
-    _imp->ifGroupForceHashChangeOfInputs();
-
-    std::string inputChangedCB = getInputChangedCallback();
-    if ( !inputChangedCB.empty() ) {
-        _imp->runInputChangedCallback(inputNumber, inputChangedCB);
-    }
-
-    if (mustCallEnd) {
-        endInputEdition(true);
-    }
-
-    return true;
+    return replaceInputInternal(input, inputNumber, true);
 } // Node::connectInput
 
 
-
-void
-Node::Implementation::ifGroupForceHashChangeOfInputs()
-{
-    ///If the node is a group, force a change of the outputs of the GroupInput nodes so the hash of the tree changes downstream
-    NodeGroup* isGrp = dynamic_cast<NodeGroup*>( effect.get() );
-
-    if ( isGrp && !isGrp->getApp()->isCreatingNodeTree() ) {
-        NodesList inputsOutputs;
-        isGrp->getInputsOutputs(&inputsOutputs, false);
-        for (NodesList::iterator it = inputsOutputs.begin(); it != inputsOutputs.end(); ++it) {
-            (*it)->incrementKnobsAge_internal();
-            (*it)->computeHash();
-        }
-    }
-}
-
 bool
-Node::replaceInputInternal(const NodePtr& input, int inputNumber, bool useGuiInputs)
+Node::replaceInputInternal(const NodePtr& input, int inputNumber, bool failIfExisting)
 {
-    assert(_imp->inputsInitialized);
-    assert(input);
-    ///Check for cycles: they are forbidden in the graph
-    if ( !checkIfConnectingInputIsOk( input.get() ) ) {
-        return false;
-    }
-    if ( _imp->effect->isInputRotoBrush(inputNumber) ) {
-        qDebug() << "Debug: Attempt to connect " << input->getScriptName_mt_safe().c_str() << " to Roto brush";
-
+    // Check for cycles: they are forbidden in the graph
+    if ( input && !checkIfConnectingInputIsOk( input ) ) {
         return false;
     }
 
-    ///For effects that do not support multi-resolution, make sure the input effect is correct
-    ///otherwise the rendering might crash
-    if ( !_imp->effect->supportsMultiResolution() ) {
-        CanConnectInputReturnValue ret = checkCanConnectNoMultiRes(this, input);
-        if (ret != eCanConnectInput_ok) {
-            return false;
-        }
+    if (isBeingDestroyed()) {
+        return false;
     }
 
     {
         ///Check for invalid index
         QMutexLocker l(&_imp->inputsMutex);
-        if ( (inputNumber < 0) || ( inputNumber > (int)_imp->inputs.size() ) ) {
+        if ( (inputNumber < 0) || ( inputNumber >= (int)_imp->inputs.size() ) ) {
             return false;
         }
     }
 
+
+    bool destroyed;
+    {
+        QMutexLocker k(&_imp->isBeingDestroyedMutex);
+        destroyed = _imp->isBeingDestroyed;
+    }
+
+    NodePtr curIn;
     {
         QMutexLocker l(&_imp->inputsMutex);
         ///Set the input
 
-        if (!useGuiInputs) {
-            NodePtr curIn = _imp->inputs[inputNumber].lock();
-            if (curIn) {
-                QObject::connect( curIn.get(), SIGNAL(labelChanged(QString)), this, SLOT(onInputLabelChanged(QString)) );
-                curIn->disconnectOutput(useGuiInputs, this);
-            }
-            _imp->inputs[inputNumber] = input;
-            _imp->guiInputs[inputNumber] = input;
-        } else {
-            NodePtr curIn = _imp->guiInputs[inputNumber].lock();
-            if (curIn) {
-                QObject::connect( curIn.get(), SIGNAL(labelChanged(QString)), this, SLOT(onInputLabelChanged(QString)) );
-                curIn->disconnectOutput(useGuiInputs, this);
-            }
-            _imp->guiInputs[inputNumber] = input;
+        curIn = _imp->inputs[inputNumber].lock();
+
+        if (failIfExisting && curIn) {
+            return false;
         }
-        input->connectOutput( useGuiInputs, shared_from_this() );
+
+        if (curIn == input) {
+            // Nothing changed
+            return true;
+        }
+
+        NodePtr thisShared = shared_from_this();
+        if (curIn) {
+            QObject::connect( curIn.get(), SIGNAL(labelChanged(QString,QString)), this, SLOT(onInputLabelChanged(QString,QString)), Qt::UniqueConnection );
+            curIn->disconnectOutput(thisShared, inputNumber);
+        }
+        if (input) {
+            _imp->inputs[inputNumber] = input;
+            input->connectOutput(thisShared, inputNumber);
+        } else {
+            _imp->inputs[inputNumber].reset();
+        }
     }
+
+    if (destroyed) {
+        // Don't do more if the node is destroyed because we would run code that is not needed on the node.
+        return true;
+    }
+
+    // Make the application recheck expressions, they may now be valid again.
+    getApp()->recheckInvalidLinks();
 
     ///Get notified when the input name has changed
-    QObject::connect( input.get(), SIGNAL(labelChanged(QString)), this, SLOT(onInputLabelChanged(QString)) );
+    if (input) {
+        QObject::connect( input.get(), SIGNAL(labelChanged(QString,QString)), this, SLOT(onInputLabelChanged(QString, QString)),Qt::UniqueConnection );
+    }
 
-    ///Notify the GUI
+    // Notify the GUI
     Q_EMIT inputChanged(inputNumber);
-    bool mustCallEnd = false;
-    if (!useGuiInputs) {
-        beginInputEdition();
-        mustCallEnd = true;
-        ///Call the instance changed action with a reason clip changed
-        onInputChanged(inputNumber);
-    }
 
-    bool creatingNodeTree = getApp()->isCreatingNodeTree();
-    if (!creatingNodeTree) {
-        ///Recompute the hash
-        computeHash();
-    }
+    beginInputEdition();
 
-    _imp->ifGroupForceHashChangeOfInputs();
+    // Call the instance changed action with a reason clip changed
+    onInputChanged(inputNumber);
 
-    std::string inputChangedCB = getInputChangedCallback();
+    // Notify cache
+    _imp->effect->invalidateHashCache();
+
+    // Run Python callback
+    std::string inputChangedCB = _imp->effect->getInputChangedCallback();
     if ( !inputChangedCB.empty() ) {
         _imp->runInputChangedCallback(inputNumber, inputChangedCB);
     }
 
-    if (mustCallEnd) {
-        endInputEdition(true);
-    }
+    endInputEdition(true);
 
     return true;
-}
+} // replaceInputInternal
 
 bool
-Node::replaceInput(const NodePtr& input,
-                   int inputNumber)
+Node::swapInput(const NodePtr& input,
+                int inputNumber)
 {
 
-
-    bool useGuiInputs = isNodeRendering();
-    _imp->effect->abortAnyEvaluation();
-    return replaceInputInternal(input, inputNumber, useGuiInputs);
+    return replaceInputInternal(input, inputNumber, false);
 } // Node::replaceInput
+
+void
+Node::connectOutputsToMainInput()
+{
+    NodePtr mainInputNode;
+    int prefInput_i = getPreferredInput();
+    if (prefInput_i != -1) {
+        mainInputNode = getRealInput(prefInput_i);
+    }
+
+
+    OutputNodesMap outputs;
+    getOutputs(outputs);
+    for (OutputNodesMap::const_iterator it = outputs.begin(); it != outputs.end(); ++it) {
+        for (std::list<int>::const_iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2) {
+            it->first->swapInput(mainInputNode, *it2);
+        }
+    }
+
+} // connectOutputsToMainInput
 
 void
 Node::switchInput0And1()
 {
-    assert(_imp->inputsInitialized);
     int maxInputs = getNInputs();
     if (maxInputs < 2) {
         return;
@@ -960,7 +872,7 @@ Node::switchInput0And1()
     ///get the first input number to switch
     int inputAIndex = -1;
     for (int i = 0; i < maxInputs; ++i) {
-        if ( !_imp->effect->isInputMask(i) ) {
+        if ( !isInputMask(i) ) {
             inputAIndex = i;
             break;
         }
@@ -978,7 +890,7 @@ Node::switchInput0And1()
         if (j == inputAIndex) {
             continue;
         }
-        if ( !_imp->effect->isInputMask(j) ) {
+        if ( !isInputMask(j) ) {
             inputBIndex = j;
             break;
         } else {
@@ -992,62 +904,47 @@ Node::switchInput0And1()
         }
     }
 
-    bool useGuiInputs = isNodeRendering();
-    _imp->effect->abortAnyEvaluation();
+
+    NodePtr input0, input1;
 
     {
         QMutexLocker l(&_imp->inputsMutex);
         assert( inputAIndex < (int)_imp->inputs.size() && inputBIndex < (int)_imp->inputs.size() );
-        NodePtr input0;
 
-        if (!useGuiInputs) {
-            input0 = _imp->inputs[inputAIndex].lock();
-            _imp->inputs[inputAIndex] = _imp->inputs[inputBIndex];
-            _imp->inputs[inputBIndex] = input0;
-            _imp->guiInputs[inputAIndex] = _imp->inputs[inputAIndex];
-            _imp->guiInputs[inputBIndex] = _imp->inputs[inputBIndex];
-        } else {
-            input0 = _imp->guiInputs[inputAIndex].lock();
-            _imp->guiInputs[inputAIndex] = _imp->guiInputs[inputBIndex];
-            _imp->guiInputs[inputBIndex] = input0;
-        }
+        input0 = _imp->inputs[inputAIndex].lock();
+        input1 = _imp->inputs[inputBIndex].lock();
+        _imp->inputs[inputAIndex] = _imp->inputs[inputBIndex];
+        _imp->inputs[inputBIndex] = input0;
+
+
     }
     Q_EMIT inputChanged(inputAIndex);
     Q_EMIT inputChanged(inputBIndex);
-    bool mustCallEnd = false;
-    if (!useGuiInputs) {
-        beginInputEdition();
-        mustCallEnd = true;
-        onInputChanged(inputAIndex);
-        onInputChanged(inputBIndex);
-    }
-    bool creatingNodeTree = getApp()->isCreatingNodeTree();
-    if (!creatingNodeTree) {
-        ///Recompute the hash
-        computeHash();
-    }
 
-    std::string inputChangedCB = getInputChangedCallback();
+    beginInputEdition();
+    onInputChanged(inputAIndex);
+    onInputChanged(inputBIndex);
+
+
+    // Notify cache
+    _imp->effect->invalidateHashCache();
+
+
+
+    std::string inputChangedCB = _imp->effect->getInputChangedCallback();
     if ( !inputChangedCB.empty() ) {
         _imp->runInputChangedCallback(inputAIndex, inputChangedCB);
         _imp->runInputChangedCallback(inputBIndex, inputChangedCB);
     }
 
 
-    _imp->ifGroupForceHashChangeOfInputs();
-
-    if (mustCallEnd) {
-        endInputEdition(true);
-    }
+    endInputEdition(true);
 } // switchInput0And1
 
-
-
 void
-Node::onInputLabelChanged(const QString & name)
+Node::onInputLabelChanged(const QString& /*oldName*/, const QString & newName)
 {
     assert( QThread::currentThread() == qApp->thread() );
-    assert(_imp->inputsInitialized);
     Node* inp = dynamic_cast<Node*>( sender() );
     assert(inp);
     if (!inp) {
@@ -1057,213 +954,73 @@ Node::onInputLabelChanged(const QString & name)
     int inputNb = -1;
     ///No need to lock, inputs is only written to by the mainthread
 
-    for (U32 i = 0; i < _imp->guiInputs.size(); ++i) {
-        if (_imp->guiInputs[i].lock().get() == inp) {
+    for (U32 i = 0; i < _imp->inputs.size(); ++i) {
+        if (_imp->inputs[i].lock().get() == inp) {
             inputNb = i;
             break;
         }
     }
 
     if (inputNb != -1) {
-        Q_EMIT inputLabelChanged(inputNb, name);
+        Q_EMIT inputLabelChanged(inputNb, newName);
     }
 }
 
 void
-Node::connectOutput(bool useGuiValues,
-                    const NodePtr& output)
+Node::connectOutput(const NodePtr& output, int outputInputIndex)
 {
     assert(output);
 
     {
         QMutexLocker l(&_imp->outputsMutex);
-        if (!useGuiValues) {
-            _imp->outputs.push_back(output);
-            _imp->guiOutputs.push_back(output);
-        } else {
-            _imp->guiOutputs.push_back(output);
+        std::list<int>& indices = _imp->outputs[output];
+        std::list<int>::const_iterator foundIndex = std::find(indices.begin(), indices.end(), outputInputIndex);
+        if (foundIndex != indices.end()) {
+            return;
         }
+        indices.push_back(outputInputIndex);
     }
     Q_EMIT outputsChanged();
 }
 
-int
+bool
 Node::disconnectInput(int inputNumber)
 {
-    assert(_imp->inputsInitialized);
-
-    NodePtr inputShared;
-    bool useGuiValues = isNodeRendering();
-    bool destroyed;
-    {
-        QMutexLocker k(&_imp->isBeingDestroyedMutex);
-        destroyed = _imp->isBeingDestroyed;
-    }
-    if (!destroyed) {
-        _imp->effect->abortAnyEvaluation();
-    }
-
-    {
-        QMutexLocker l(&_imp->inputsMutex);
-        if ( (inputNumber < 0) ||
-             ( inputNumber > (int)_imp->inputs.size() ) ||
-             ( !useGuiValues && !_imp->inputs[inputNumber].lock() ) ||
-             ( useGuiValues && !_imp->guiInputs[inputNumber].lock() ) ) {
-            return -1;
-        }
-        inputShared = useGuiValues ? _imp->guiInputs[inputNumber].lock() : _imp->inputs[inputNumber].lock();
-    }
-
-
-    QObject::disconnect( inputShared.get(), SIGNAL(labelChanged(QString)), this, SLOT(onInputLabelChanged(QString)) );
-    inputShared->disconnectOutput(useGuiValues, this);
-
-    {
-        QMutexLocker l(&_imp->inputsMutex);
-        if (!useGuiValues) {
-            _imp->inputs[inputNumber].reset();
-            _imp->guiInputs[inputNumber].reset();
-        } else {
-            _imp->guiInputs[inputNumber].reset();
-        }
-    }
-
-    {
-        QMutexLocker k(&_imp->isBeingDestroyedMutex);
-        if (_imp->isBeingDestroyed) {
-            return -1;
-        }
-    }
-
-    Q_EMIT inputChanged(inputNumber);
-    bool mustCallEnd = false;
-    if (!useGuiValues) {
-        beginInputEdition();
-        mustCallEnd = true;
-        onInputChanged(inputNumber);
-    }
-    bool creatingNodeTree = getApp()->isCreatingNodeTree();
-    if (!creatingNodeTree) {
-        ///Recompute the hash
-        computeHash();
-    }
-
-    _imp->ifGroupForceHashChangeOfInputs();
-
-    std::string inputChangedCB = getInputChangedCallback();
-    if ( !inputChangedCB.empty() ) {
-        _imp->runInputChangedCallback(inputNumber, inputChangedCB);
-    }
-    if (mustCallEnd) {
-        endInputEdition(true);
-    }
-
-    return inputNumber;
+    return replaceInputInternal(NodePtr(), inputNumber, false);
 } // Node::disconnectInput
 
-int
-Node::disconnectInputInternal(Node* input, bool useGuiValues)
+
+bool
+Node::disconnectInput(const NodePtr& input)
 {
-    assert(_imp->inputsInitialized);
-    int found = -1;
-    NodePtr inputShared;
-    {
-        QMutexLocker l(&_imp->inputsMutex);
-        if (!useGuiValues) {
-            for (std::size_t i = 0; i < _imp->inputs.size(); ++i) {
-                NodePtr curInput = _imp->inputs[i].lock();
-                if (curInput.get() == input) {
-                    inputShared = curInput;
-                    found = (int)i;
-                    break;
-                }
-            }
-        } else {
-            for (std::size_t i = 0; i < _imp->guiInputs.size(); ++i) {
-                NodePtr curInput = _imp->guiInputs[i].lock();
-                if (curInput.get() == input) {
-                    inputShared = curInput;
-                    found = (int)i;
-                    break;
-                }
-            }
+    std::list<int> indices = input->getInputIndicesConnectedToThisNode(shared_from_this());
+
+    if (!indices.empty()) {
+        for (std::list<int>::const_iterator it = indices.begin(); it != indices.end(); ++it) {
+            swapInput(NodePtr(), *it);
         }
+        return true;
     }
-    if (found != -1) {
-        {
-            QMutexLocker l(&_imp->inputsMutex);
-            if (!useGuiValues) {
-                _imp->inputs[found].reset();
-                _imp->guiInputs[found].reset();
-            } else {
-                _imp->guiInputs[found].reset();
-            }
-        }
-        input->disconnectOutput(useGuiValues, this);
-        Q_EMIT inputChanged(found);
-        bool mustCallEnd = false;
-        if (!useGuiValues) {
-            beginInputEdition();
-            mustCallEnd = true;
-            onInputChanged(found);
-        }
-        bool creatingNodeTree = getApp()->isCreatingNodeTree();
-        if (!creatingNodeTree) {
-            ///Recompute the hash
-            if ( !getApp()->getProject()->isProjectClosing() ) {
-                computeHash();
-            }
-        }
+    return false;
 
-
-        _imp->ifGroupForceHashChangeOfInputs();
-
-        std::string inputChangedCB = getInputChangedCallback();
-        if ( !inputChangedCB.empty() ) {
-            _imp->runInputChangedCallback(found, inputChangedCB);
-        }
-
-        if (mustCallEnd) {
-            endInputEdition(true);
-        }
-
-        return found;
-    }
-
-    return -1;
-}
-
-int
-Node::disconnectInput(Node* input)
-{
-
-    bool useGuiValues = isNodeRendering();
-    _imp->effect->abortAnyEvaluation();
-    return disconnectInputInternal(input, useGuiValues);
 } // Node::disconnectInput
 
-int
-Node::disconnectOutput(bool useGuiValues,
-                       const Node* output)
+bool
+Node::disconnectOutput(const NodePtr& output, int outputInputIndex)
 {
     assert(output);
-    int ret = -1;
+    bool ret = false;
     {
         QMutexLocker l(&_imp->outputsMutex);
-        if (!useGuiValues) {
-            int ret = 0;
-            for (NodesWList::iterator it = _imp->outputs.begin(); it != _imp->outputs.end(); ++it, ++ret) {
-                if (it->lock().get() == output) {
-                    _imp->outputs.erase(it);
-                    break;
-                }
+        InternalOutputNodesMap::iterator found = _imp->outputs.find(output);
+        if (found != _imp->outputs.end()) {
+            std::list<int>::iterator foundIndex = std::find(found->second.begin(), found->second.end(), outputInputIndex);
+            if (foundIndex != found->second.end()) {
+                found->second.erase(foundIndex);
+                ret = true;
             }
-        }
-        int ret = 0;
-        for (NodesWList::iterator it = _imp->guiOutputs.begin(); it != _imp->guiOutputs.end(); ++it, ++ret) {
-            if (it->lock().get() == output) {
-                _imp->guiOutputs.erase(it);
-                break;
+            if (found->second.empty()) {
+                _imp->outputs.erase(found);
             }
         }
     }
@@ -1274,120 +1031,64 @@ Node::disconnectOutput(bool useGuiValues,
     return ret;
 }
 
-int
-Node::inputIndex(const NodePtr& n) const
-{
-    if (!n) {
-        return -1;
-    }
-
-    ///Only called by the main-thread
-    assert( QThread::currentThread() == qApp->thread() );
-    assert(_imp->inputsInitialized);
-
-    NodePtr parent = _imp->multiInstanceParent.lock();
-    if (parent) {
-        return parent->inputIndex(n);
-    }
-
-    ///No need to lock this is only called by the main-thread
-    for (std::size_t i = 0; i < _imp->inputs.size(); ++i) {
-        if (_imp->inputs[i].lock() == n) {
-            return i;
-        }
-    }
-
-
-    return -1;
-}
-
-const std::vector<std::string> &
-Node::getInputLabels() const
-{
-    assert(_imp->inputsInitialized);
-    ///MT-safe as it never changes.
-    ////Only called by the main-thread
-    assert( QThread::currentThread() == qApp->thread() );
-
-    return _imp->inputLabels;
-}
-
 
 void
-Node::getOutputsConnectedToThisNode(std::map<NodePtr, int>* outputs)
+Node::getOutputs(OutputNodesMap& outputs) const
 {
-    ////Only called by the main-thread
-    assert( QThread::currentThread() == qApp->thread() );
-
-    NodePtr thisSHared = shared_from_this();
-    for (NodesWList::iterator it = _imp->outputs.begin(); it != _imp->outputs.end(); ++it) {
-        NodePtr output = it->lock();
+    QMutexLocker l(&_imp->outputsMutex);
+    for (InternalOutputNodesMap::const_iterator it = _imp->outputs.begin(); it != _imp->outputs.end(); ++it) {
+        NodePtr output = it->first.lock();
         if (!output) {
             continue;
         }
-
-        int indexOfThis = output->inputIndex(thisSHared);
-        assert(indexOfThis != -1);
-        if (indexOfThis >= 0) {
-            outputs->insert( std::make_pair(output, indexOfThis) );
-        }
+        outputs[output] = it->second;
     }
 }
 
-
-const NodesWList &
-Node::getOutputs() const
-{
-    ////Only called by the main-thread
-    assert( QThread::currentThread() == qApp->thread() );
-
-    return _imp->outputs;
-}
-
-const NodesWList &
-Node::getGuiOutputs() const
-{
-    ////Only called by the main-thread
-    assert( QThread::currentThread() == qApp->thread() );
-
-    return _imp->guiOutputs;
-}
-
 void
-Node::getOutputs_mt_safe(NodesWList& outputs) const
+Node::getInputNames(std::map<std::string, std::string> & inputNames,
+                    std::map<std::string, std::string> & maskNames) const
 {
-    QMutexLocker l(&_imp->outputsMutex);
+    // This is called by the serialization thread.
+    // We use the inputs because we want to serialize exactly how the tree was to the user
 
-    outputs =  _imp->outputs;
-}
+    {
+        QMutexLocker l(&_imp->inputsMutex);
+        assert(_imp->inputs.size() == _imp->inputDescriptions.size());
+        for (std::size_t i = 0; i < _imp->inputs.size(); ++i) {
+            NodePtr input = _imp->inputs[i].lock();
+            std::map<std::string, std::string>* container = 0;
 
-void
-Node::getInputNames(std::map<std::string, std::string> & inputNames) const
-{
-    ///This is called by the serialization thread.
-    ///We use the guiInputs because we want to serialize exactly how the tree was to the user
+            if (_imp->inputDescriptions[i]->getPropertyUnsafe<bool>(kInputDescPropIsMask)) {
+                container = &maskNames;
+            } else {
+                container = &inputNames;
+            }
 
-    NodePtr parent = _imp->multiInstanceParent.lock();
+            std::string inputLabel = _imp->inputDescriptions[i]->getPropertyUnsafe<std::string>(kInputDescPropLabel);
+            if (input) {
+                (*container)[inputLabel] = input->getScriptName_mt_safe();
+            } else {
+                (*container)[inputLabel] = std::string();
+            }
 
-    if (parent) {
-        parent->getInputNames(inputNames);
-
-        return;
-    }
-
-    QMutexLocker l(&_imp->inputsLabelsMutex);
-    assert( _imp->inputs.size() == _imp->inputLabels.size() );
-    for (std::size_t i = 0; i < _imp->inputs.size(); ++i) {
-        NodePtr input = _imp->inputs[i].lock();
-        if (input) {
-            inputNames.insert( std::make_pair( _imp->inputLabels[i], input->getScriptName_mt_safe() ) );
         }
+
     }
 }
 
 int
 Node::getPreferredInputInternal(bool connected) const
 {
+    if (isBeingDestroyed()) {
+        return -1;
+    }
+    {
+        int prefInput;
+        if (_imp->effect->getDefaultInput(connected, &prefInput)) {
+            return prefInput;
+        }
+    }
     int nInputs = getNInputs();
 
     if (nInputs == 0) {
@@ -1457,17 +1158,14 @@ Node::getPreferredInputInternal(bool connected) const
     std::list<int> optionalEmptyMasks;
 
     for (int i = 0; i < nInputs; ++i) {
-        if ( _imp->effect->isInputRotoBrush(i) ) {
-            continue;
-        }
         if ( (connected && inputs[i]) || (!connected && !inputs[i]) ) {
-            if ( !_imp->effect->isInputOptional(i) ) {
+            if ( !isInputOptional(i) ) {
                 if (firstNonOptionalEmptyInput == -1) {
                     firstNonOptionalEmptyInput = i;
                     break;
                 }
             } else {
-                if ( _imp->effect->isInputMask(i) ) {
+                if ( isInputMask(i) ) {
                     optionalEmptyMasks.push_back(i);
                 } else {
                     optionalEmptyInputs.push_back(i);
@@ -1484,9 +1182,7 @@ Node::getPreferredInputInternal(bool connected) const
         if ( !optionalEmptyInputs.empty() ) {
             //We return the first optional empty input
             std::list<int>::iterator first = optionalEmptyInputs.begin();
-            while ( first != optionalEmptyInputs.end() && _imp->effect->isInputRotoBrush(*first) ) {
-                ++first;
-            }
+
             if ( first == optionalEmptyInputs.end() ) {
                 return -1;
             } else {
@@ -1515,18 +1211,17 @@ Node::getPreferredInputForConnection() const
 NodePtr
 Node::getPreferredInputNode() const
 {
-    GroupInput* isInput = dynamic_cast<GroupInput*>( _imp->effect.get() );
-    PrecompNode* isPrecomp = dynamic_cast<PrecompNode*>( _imp->effect.get() );
+    GroupInputPtr isInput = isEffectGroupInput();
 
     if (isInput) {
-        NodeGroup* isGroup = dynamic_cast<NodeGroup*>( getGroup().get() );
+        NodeGroupPtr isGroup = toNodeGroup(getGroup());
         assert(isGroup);
         if (!isGroup) {
             return NodePtr();
         }
         int inputNb = -1;
         std::vector<NodePtr> groupInputs;
-        isGroup->getInputs(&groupInputs, false);
+        isGroup->getInputs(&groupInputs);
         for (std::size_t i = 0; i < groupInputs.size(); ++i) {
             if (groupInputs[i].get() == this) {
                 inputNb = i;
@@ -1538,8 +1233,6 @@ Node::getPreferredInputNode() const
 
             return input;
         }
-    } else if (isPrecomp) {
-        return isPrecomp->getOutputNode();
     } else {
         int idx = getPreferredInput();
         if (idx != -1) {
@@ -1561,39 +1254,45 @@ Node::beginInputEdition()
 void
 Node::endInputEdition(bool triggerRender)
 {
+    if (isBeingDestroyed()) {
+        return;
+    }
     assert( QThread::currentThread() == qApp->thread() );
     if (_imp->inputModifiedRecursion > 0) {
         --_imp->inputModifiedRecursion;
     }
 
     if (!_imp->inputModifiedRecursion) {
-        bool hasChanged = !_imp->inputsModified.empty();
-        _imp->inputsModified.clear();
 
-        if (hasChanged) {
-            if ( !getApp()->isCreatingNodeTree() ) {
-                forceRefreshAllInputRelatedData();
-            }
-            refreshDynamicProperties();
+        if (_imp->hasModifiedInputsDescription > 0) {
+            _imp->hasModifiedInputsDescription = 0;
+            Q_EMIT inputsDescriptionChanged();
         }
 
-        triggerRender = triggerRender && hasChanged;
+        if (!getApp()->getProject()->isLoadingProject() && !getApp()->isCreatingNode()) {
+            bool hasChanged = !_imp->inputsModified.empty();
+            _imp->inputsModified.clear();
 
-        if (triggerRender) {
-            std::list<ViewerInstance* > viewers;
-            hasViewersConnected(&viewers);
-            for (std::list<ViewerInstance* >::iterator it2 = viewers.begin(); it2 != viewers.end(); ++it2) {
-                (*it2)->renderCurrentFrame(true);
+            if (hasChanged) {
+
+                // Force a refresh of the meta-datas
+
+                _imp->effect->onMetadataChanged_recursive_public();
+            }
+
+            triggerRender = triggerRender && hasChanged;
+
+            if (triggerRender) {
+                getApp()->renderAllViewers();
             }
         }
     }
 }
 
 void
-Node::onInputChanged(int inputNb,
-                     bool isInputA)
+Node::onInputChanged(int inputNb)
 {
-    if ( getApp()->getProject()->isProjectClosing() ) {
+    if ( getApp()->getProject()->isProjectClosing() || isBeingDestroyed() ) {
         return;
     }
     assert( QThread::currentThread() == qApp->thread() );
@@ -1603,102 +1302,46 @@ Node::onInputChanged(int inputNb,
         beginInputEdition();
     }
 
-    refreshMaskEnabledNess(inputNb);
-    refreshLayersChoiceSecretness(inputNb);
 
-    InspectorNode* isInspector = dynamic_cast<InspectorNode*>(this);
-    if (isInspector) {
-        isInspector->refreshActiveInputs(inputNb, isInputA);
-    }
+    //if (!getApp()->isCreatingNode()) {
+        _imp->effect->onInputChanged_public(inputNb);
+    //}
+    _imp->inputsModified.insert(inputNb);
 
-    bool shouldDoInputChanged = ( !getApp()->getProject()->isProjectClosing() && !getApp()->isCreatingNodeTree() ) ||
-                                _imp->effect->isRotoPaintNode();
-
-    if (shouldDoInputChanged) {
-        ///When loading a group (or project) just wait until everything is setup to actually compute input
-        ///related data such as clip preferences
-        ///Exception for the Rotopaint node which needs to setup its own graph internally
-
-        /**
-         * The plug-in might call getImage, set a valid thread storage on the tree.
-         **/
-        double time = getApp()->getTimeLine()->currentFrame();
-        AbortableRenderInfoPtr abortInfo = AbortableRenderInfo::create(false, 0);
-        const bool isRenderUserInteraction = true;
-        const bool isSequentialRender = false;
-        AbortableThread* isAbortable = dynamic_cast<AbortableThread*>( QThread::currentThread() );
-        if (isAbortable) {
-            isAbortable->setAbortInfo( isRenderUserInteraction, abortInfo, getEffectInstance() );
-        }
-        ParallelRenderArgsSetter frameRenderArgs( time,
-                                                  ViewIdx(0),
-                                                  isRenderUserInteraction,
-                                                  isSequentialRender,
-                                                  abortInfo,
-                                                  shared_from_this(),
-                                                  0, //texture index
-                                                  getApp()->getTimeLine().get(),
-                                                  NodePtr(),
-                                                  false,
-                                                  false,
-                                                  RenderStatsPtr() );
-
-
-        ///Don't do clip preferences while loading a project, they will be refreshed globally once the project is loaded.
-        _imp->effect->onInputChanged(inputNb);
-        _imp->inputsModified.insert(inputNb);
-
-        // If the effect has render clones, kill them as the plug-in might have changed its internal state
-        _imp->effect->clearRenderInstances();
-
-        //A knob value might have changed recursively, redraw  any overlay
-        if ( !_imp->effect->isDequeueingValuesSet() &&
-             ( _imp->effect->getRecursionLevel() == 0) && _imp->effect->checkIfOverlayRedrawNeeded() ) {
-            _imp->effect->redrawOverlayInteract();
-        }
-    }
 
     /*
-       If this is a group, also notify the output nodes of the GroupInput node inside the Group corresponding to
-       the this inputNb
+     If this is a group, also notify the output nodes of the GroupInput node inside the Group corresponding to
+     the this inputNb
      */
-    NodeGroup* isGroup = dynamic_cast<NodeGroup*>( _imp->effect.get() );
+    NodeGroupPtr isGroup = isEffectNodeGroup();
     if (isGroup) {
         std::vector<NodePtr> groupInputs;
-        isGroup->getInputs(&groupInputs, false);
+        isGroup->getInputs(&groupInputs);
         if ( (inputNb >= 0) && ( inputNb < (int)groupInputs.size() ) && groupInputs[inputNb] ) {
-            std::map<NodePtr, int> inputOutputs;
-            groupInputs[inputNb]->getOutputsConnectedToThisNode(&inputOutputs);
-            for (std::map<NodePtr, int> ::iterator it = inputOutputs.begin(); it != inputOutputs.end(); ++it) {
-                it->first->onInputChanged(it->second);
+            OutputNodesMap inputOutputs;
+            groupInputs[inputNb]->getOutputs(inputOutputs);
+            for (OutputNodesMap::iterator it = inputOutputs.begin(); it != inputOutputs.end(); ++it) {
+                for (std::list<int>::const_iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2) {
+                    it->first->onInputChanged(*it2);
+                }
             }
         }
     }
 
     /*
-       If this is an output node, notify the Group output nodes that their input have changed.
+     If this is an output node, notify the Group output nodes that their input have changed.
      */
-    GroupOutput* isOutput = dynamic_cast<GroupOutput*>( _imp->effect.get() );
-    if (isOutput) {
-        NodeGroup* containerGroup = dynamic_cast<NodeGroup*>( isOutput->getNode()->getGroup().get() );
+    GroupOutputPtr isGroupOutput = isEffectGroupOutput();
+    if (isGroupOutput) {
+        NodeGroupPtr containerGroup = toNodeGroup( isGroupOutput->getNode()->getGroup() );
         if (containerGroup) {
-            std::map<NodePtr, int> groupOutputs;
-            containerGroup->getNode()->getOutputsConnectedToThisNode(&groupOutputs);
-            for (std::map<NodePtr, int> ::iterator it = groupOutputs.begin(); it != groupOutputs.end(); ++it) {
-                it->first->onInputChanged(it->second);
+            OutputNodesMap groupOutputs;
+            containerGroup->getNode()->getOutputs(groupOutputs);
+            for (OutputNodesMap::iterator it = groupOutputs.begin(); it != groupOutputs.end(); ++it) {
+                for (std::list<int>::const_iterator it2 = it->second.begin(); it2 != it->second.end(); ++it2) {
+                    it->first->onInputChanged(*it2);
+                }
             }
-        }
-    }
-
-    /*
-     * If this node is the output of a pre-comp, notify the precomp output nodes that their input have changed
-     */
-    PrecompNodePtr isInPrecomp = isPartOfPrecomp();
-    if ( isInPrecomp && (isInPrecomp->getOutputNode().get() == this) ) {
-        std::map<NodePtr, int> inputOutputs;
-        isInPrecomp->getNode()->getOutputsConnectedToThisNode(&inputOutputs);
-        for (std::map<NodePtr, int> ::iterator it = inputOutputs.begin(); it != inputOutputs.end(); ++it) {
-            it->first->onInputChanged(it->second);
         }
     }
 
@@ -1716,12 +1359,63 @@ Node::duringInputChangedAction() const
     return _imp->inputModifiedRecursion > 0;
 }
 
+static std::string removeTrailingDigits(const std::string& str)
+{
+    if (str.empty()) {
+        return std::string();
+    }
+    std::size_t i = str.size() - 1;
+    while (i > 0 && std::isdigit(str[i])) {
+        --i;
+    }
+
+    if (i == 0) {
+        // Name only consists of digits
+        return std::string();
+    }
+
+    return str.substr(0, i + 1);
+}
+
+
+bool
+Node::isEntitledForInspectorInputsStyle() const
+{
+
+    // Find the number of inputs that share the same basename
+
+    int nInputsWithSameBasename = 0;
+
+    std::string baseInputName;
+
+    // We need a boolean here because the baseInputName may be empty in the case input names only contain numbers
+    bool baseInputNameSet = false;
+
+    int maxInputs = getNInputs();
+    for (int i = 0; i < maxInputs; ++i) {
+        if (!baseInputNameSet) {
+            baseInputName = removeTrailingDigits(getInputLabel(i));
+            baseInputNameSet = true;
+            nInputsWithSameBasename = 1;
+        } else {
+            std::string thisBaseName = removeTrailingDigits(getInputLabel(i));
+            if (thisBaseName == baseInputName) {
+                ++nInputsWithSameBasename;
+            }
+        }
+
+    }
+    return maxInputs > 4 && nInputsWithSameBasename >= 4;
+}
 
 bool
 Node::hasSequentialOnlyNodeUpstream(std::string & nodeName) const
 {
+    if (isBeingDestroyed()) {
+        return false;
+    }
     ///Just take into account sequentiallity for writers
-    if ( (_imp->effect->getSequentialPreference() == eSequentialPreferenceOnlySequential) && _imp->effect->isWriter() ) {
+    if ( (_imp->effect->getSequentialRenderSupport() == eSequentialPreferenceOnlySequential) && _imp->effect->isWriter() ) {
         nodeName = getScriptName_mt_safe();
 
         return true;
@@ -1741,238 +1435,254 @@ Node::hasSequentialOnlyNodeUpstream(std::string & nodeName) const
     }
 }
 
-//////////////////////////////////
-
-InspectorNode::InspectorNode(const AppInstancePtr& app,
-                             const NodeCollectionPtr& group,
-                             Plugin* plugin)
-    : Node(app, group, plugin)
+void
+Node::moveBelowPositionRecursively(const RectD & r)
 {
-    for (int i = 0; i < 2; ++i) {
-        _activeInputs[i] = -1;
+
+    RectD boundingRect = getNodeBoundingRect();
+    if (!r.intersects(boundingRect)) {
+        return;
     }
-}
+    movePosition(0, r.height() + boundingRect.height() / 2.);
 
-InspectorNode::~InspectorNode()
-{
-}
+    boundingRect = getNodeBoundingRect();
 
-bool
-InspectorNode::connectInput(const NodePtr& input,
-                            int inputNumber)
-{
-    ///Only called by the main-thread
-    assert( QThread::currentThread() == qApp->thread() );
-
-    if ( !isEffectViewer() ) {
-        return connectInputBase(input, inputNumber);
+    OutputNodesMap outputs;
+    getOutputs(outputs);
+    for (OutputNodesMap::const_iterator it = outputs.begin(); it != outputs.end(); ++it) {
+        it->first->moveBelowPositionRecursively(boundingRect);
     }
 
-    ///cannot connect more than _maxInputs inputs.
-    assert( inputNumber <= getNInputs() );
-
-    assert(input);
-
-    if ( !checkIfConnectingInputIsOk( input.get() ) ) {
-        return false;
-    }
-
-    ///For effects that do not support multi-resolution, make sure the input effect is correct
-    ///otherwise the rendering might crash
-    if ( !getEffectInstance()->supportsMultiResolution() ) {
-        CanConnectInputReturnValue ret = checkCanConnectNoMultiRes(this, input);
-        if (ret != eCanConnectInput_ok) {
-            return false;
-        }
-    }
-
-    ///If the node 'input' is already to an input of the inspector, find it.
-    ///If it has the same input number as what we want just return, otherwise
-    ///disconnect it and continue as usual.
-    int inputAlreadyConnected = inputIndex(input);
-    if (inputAlreadyConnected != -1) {
-        if (inputAlreadyConnected == inputNumber) {
-            return false;
-        } else {
-            disconnectInput(inputAlreadyConnected);
-        }
-    }
-
-    if ( !Node::connectInput(input, inputNumber) ) {
-        bool creatingNodeTree = getApp()->isCreatingNodeTree();
-        if (!creatingNodeTree) {
-            ///Recompute the hash
-            computeHash();
-        }
-    }
-
-    return true;
 }
 
 void
-InspectorNode::setActiveInputAndRefresh(int inputNb,
-                                        bool isASide)
+Node::moveAbovePositionRecursively(const RectD & r)
 {
-    assert( QThread::currentThread() == qApp->thread() );
-
-    int maxInputs = getNInputs();
-    if ( ( inputNb > (maxInputs - 1) ) || (inputNb < 0) || ( !getInput(inputNb) ) ) {
+    RectD boundingRect = getNodeBoundingRect();
+    if (!r.intersects(boundingRect)) {
         return;
     }
 
-    bool creatingNodeTree = getApp()->isCreatingNodeTree();
-    if (!creatingNodeTree) {
-        ///Recompute the hash
-        computeHash();
-    }
+    movePosition(0, -r.height() - boundingRect.height() / 2.);
 
-    Q_EMIT inputChanged(inputNb);
-    onInputChanged(inputNb, isASide);
+    boundingRect = getNodeBoundingRect();
 
-    runInputChangedCallback(inputNb);
-
-
-    if ( isOutputNode() ) {
-        OutputEffectInstance* oei = dynamic_cast<OutputEffectInstance*>( getEffectInstance().get() );
-        assert(oei);
-        if (oei) {
-            oei->renderCurrentFrame(true);
+    const std::vector<NodeWPtr>& inputs = getInputs();
+    for (std::size_t i = 0; i < inputs.size(); ++i) {
+        NodePtr input = inputs[i].lock();
+        if (!input) {
+            continue;
         }
+        input->moveAbovePositionRecursively(boundingRect);
     }
 }
 
-void
-InspectorNode::refreshActiveInputs(int inputNbChanged,
-                                   bool isASide)
+
+bool
+Node::autoConnect(const NodePtr& selected)
 {
-    assert( QThread::currentThread() == qApp->thread() );
-    NodePtr inputNode = getRealInput(inputNbChanged);
-    {
-        QMutexLocker l(&_activeInputsMutex);
-        if (!inputNode) {
-            ///check if the input was one of the active ones if so set to -1
-            if (_activeInputs[0] == inputNbChanged) {
-                _activeInputs[0] = -1;
-            } else if (_activeInputs[1] == inputNbChanged) {
-                _activeInputs[1] = -1;
+    if (!canOthersConnectToThisNode()) {
+        return false;
+    }
+
+    if (!selected) {
+        return false;
+    }
+
+    // 2 possible values:
+    // 1 = pop the node above the selected node and move the inputs of the selected node a little
+    // 2 = pop the node below the selected node and move the outputs of the selected node a little
+    enum AutoConnectBehaviorEnum {
+        eAutoConnectBehaviorAbove,
+        eAutoConnectBehaviorBelow
+    };
+
+    AutoConnectBehaviorEnum behavior;
+
+    //        1) selected is output
+    //          a) created is output --> fail
+    //          b) created is input --> connect input
+    //          c) created is regular --> connect input
+    //        2) selected is input
+    //          a) created is output --> connect output
+    //          b) created is input --> fail
+    //          c) created is regular --> connect output
+    //        3) selected is regular
+    //          a) created is output--> connect output
+    //          b) created is input --> connect input
+    //          c) created is regular --> connect output
+
+    ///1)
+    if ( selected->isOutputNode() ) {
+        ///case 1-a) just do default we don't know what else to do
+        if (isOutputNode()) {
+            return false;
+        } else {
+            ///for either cases 1-b) or 1-c) we just connect the created node as input of the selected node.
+            behavior = eAutoConnectBehaviorAbove;
+        }
+    }
+    ///2) and 3) are similar except for case b)
+    else {
+        ///case 2 or 3- a): connect the created node as output of the selected node.
+        if (isOutputNode()) {
+            behavior = eAutoConnectBehaviorBelow;
+        }
+        ///case b)
+        else if (isInputNode()) {
+            if ( selected->getEffectInstance()->isReader() ) {
+                ///case 2-b) just do default we don't know what else to do
+                return false;
+            } else {
+                ///case 3-b): connect the created node as input of the selected node
+                behavior = eAutoConnectBehaviorAbove;
+            }
+        }
+        ///case c) connect created as output of the selected node
+        else {
+            behavior = eAutoConnectBehaviorBelow;
+        }
+    }
+
+
+    // If behaviour is 1 , just check that we can effectively connect the node to avoid moving them for nothing
+    // otherwise fail
+    if (behavior == eAutoConnectBehaviorAbove) {
+        const std::vector<NodeWPtr> & inputs = selected->getInputs();
+        bool oneInputEmpty = false;
+        for (std::size_t i = 0; i < inputs.size(); ++i) {
+            if ( !inputs[i].lock() ) {
+                oneInputEmpty = true;
+                break;
+            }
+        }
+        if (!oneInputEmpty) {
+            return false;
+        }
+    }
+
+    Point selectedNodeSize, selectedNodePos;
+    selected->getSize(&selectedNodeSize.x, &selectedNodeSize.y);
+    selected->getPosition(&selectedNodePos.x, &selectedNodePos.y);
+    Point createdNodeSize, createdNodePos;
+    getSize(&createdNodeSize.x, &createdNodeSize.y);
+    getPosition(&createdNodePos.x, &createdNodePos.y);
+
+    Point selectedNodeMiddlePos;
+    selectedNodeMiddlePos.x = selectedNodePos.x + selectedNodeSize.x / 2.;
+    selectedNodeMiddlePos.y = selectedNodePos.y + selectedNodeSize.y / 2.;
+
+    RectD selectedNodeRect( selectedNodePos.x, selectedNodePos.y, selectedNodePos.x + selectedNodeSize.x, selectedNodePos.y + selectedNodeSize.y);
+
+    Point position;
+    if (behavior == eAutoConnectBehaviorAbove) {
+        ///pop it above the selected node
+
+        ///If this is the first connected input, insert it in a "linear" way so the tree remains vertical
+        int nbConnectedInput = 0;
+        const std::vector<NodeWPtr> & inputs = selected->getInputs();
+        for (std::size_t i = 0; i < inputs.size(); ++i) {
+            if ( inputs[i].lock() ) {
+                ++nbConnectedInput;
+            }
+        }
+
+        // Connect it to the first input
+
+
+        if (nbConnectedInput == 0) {
+
+            position.x = selectedNodeMiddlePos.x - createdNodeSize.x / 2.;
+            position.y = selectedNodeMiddlePos.y - selectedNodeSize.y / 2. - createdNodeSize.x / 2. - createdNodeSize.y;
+
+            RectD createdNodeRect( position.x, position.y, position.x + createdNodeSize.x, position.y + createdNodeSize.y);
+
+            // Now that we have the position of the node, move the inputs of the selected node to make some space for this node
+            for (std::size_t i = 0; i < inputs.size(); ++i) {
+                NodePtr input = inputs[i].lock();
+                if (input) {
+                    input->moveAbovePositionRecursively(createdNodeRect);
+                }
+            }
+
+            int selectedInput = selected->getPreferredInputForConnection();
+            if (selectedInput != -1) {
+                selected->swapInput(shared_from_this(), selectedInput);
             }
         } else {
-            if ( !isASide && (_activeInputs[0] != -1) ) {
-                ViewerInstance* isViewer = isEffectViewer();
-                if (isViewer) {
-                    OpenGLViewerI* viewerUI = isViewer->getUiContext();
-                    if (viewerUI) {
-                        ViewerCompositingOperatorEnum op = viewerUI->getCompositingOperator();
-                        if (op == eViewerCompositingOperatorNone) {
-                            viewerUI->setCompositingOperator(eViewerCompositingOperatorWipeUnder);
-                        }
+
+            Point selectedCenter;
+            selectedCenter.x = (selectedNodeRect.x1 + selectedNodeRect.x2) / 2.;
+            selectedCenter.y = (selectedNodeRect.y1 + selectedNodeRect.y2) / 2.;
+
+            position.x = selectedCenter.x + nbConnectedInput * 150 - createdNodeSize.x / 2.;
+            position.y = selectedCenter.y - selectedNodeSize.y / 2. - createdNodeSize.x / 2. - createdNodeSize.y;
+
+
+            int index = selected->getPreferredInputForConnection();
+            if (index != -1) {
+                selected->swapInput(shared_from_this(), index);
+            }
+            //} // if (isSelectedViewer) {*/
+        } // if (nbConnectedInput == 0) {
+    } else if (behavior == eAutoConnectBehaviorBelow) {
+
+        // Pop it below the selected node
+
+        OutputNodesMap outputs;
+        selected->getOutputs(outputs);
+        if ( !isOutputNode() || outputs.empty() ) {
+
+            ///actually move the created node where the selected node is
+            position.x = selectedNodeMiddlePos.x - createdNodeSize.x / 2.;
+            position.y = selectedNodeMiddlePos.y + selectedNodeSize.y / 2. + selectedNodeSize.y / 2.;
+
+            RectD createdNodeRect( position.x, position.y, position.x + createdNodeSize.x, position.y + createdNodeSize.y);
+
+            ///and move the selected node below recusively
+            for (OutputNodesMap::const_iterator it = outputs.begin(); it != outputs.end(); ++it) {
+                it->first->moveBelowPositionRecursively(createdNodeRect);
+            }
+
+            ///Connect the created node to the selected node
+            ///finally we connect the created node to the selected node
+            int createdInput = getPreferredInputForConnection();
+            if (createdInput != -1) {
+                ignore_result( connectInput(selected, createdInput) );
+            }
+
+            if ( !isOutputNode() ) {
+                ///we find all the nodes that were previously connected to the selected node,
+                ///and connect them to the created node instead.
+                OutputNodesMap outputsConnectedToSelectedNode;
+                selected->getOutputs(outputsConnectedToSelectedNode);
+
+                for (OutputNodesMap::iterator it = outputsConnectedToSelectedNode.begin(); it != outputsConnectedToSelectedNode.end(); ++it) {
+                    const NodePtr &output = it->first;
+                    for (std::list<int>::iterator it2 = it->second.begin(); it2 !=it->second.end(); ++it2) {
+                        output->swapInput(shared_from_this(), *it2);
                     }
                 }
-                _activeInputs[1] = inputNbChanged;
-            } else {
-                _activeInputs[0] = inputNbChanged;
-                if (_activeInputs[1] == -1) {
-                    _activeInputs[1] = inputNbChanged;
-                }
+
+
+            }
+        } else {
+            ///the created node is an output node and the selected node already has several outputs, create it aside
+            position.x = selectedNodeMiddlePos.x + (int)outputs.size() * 150 - createdNodeSize.x / 2.;
+            position.y = selectedNodeMiddlePos.y + selectedNodeSize.y / 2. + selectedNodeSize.y / 2.;
+
+            //Don't pop a dot, it will most likely annoy the user, just fallback on behavior 0
+
+            int index = getPreferredInputForConnection();
+            if (index != -1) {
+                swapInput(selected, index);
             }
         }
     }
-    Q_EMIT activeInputsChanged();
-    Q_EMIT refreshOptionalState();
-}
 
-int
-InspectorNode::getPreferredInputInternal(bool connected) const
-{
-    bool useInputA = false;
-    if (!connected) {
-        // For the merge node, use the preference (only when not connected)
-        useInputA = appPTR->getCurrentSettings()->useInputAForMergeAutoConnect();
-    }
+    setPosition(position.x, position.y);
+    return true;
 
-    ///Find an input named A
-    std::string inputNameToFind, otherName;
-
-    if ( useInputA || (getPluginID() == PLUGINID_OFX_SHUFFLE && getMajorVersion() < 3) ) {
-        inputNameToFind = "A";
-        otherName = "B";
-    } else {
-        inputNameToFind = "B";
-        otherName = "A";
-    }
-    int foundOther = -1;
-    int maxinputs = getNInputs();
-    for (int i = 0; i < maxinputs; ++i) {
-        std::string inputLabel = getInputLabel(i);
-        if (inputLabel == inputNameToFind) {
-            NodePtr inp = getInput(i);
-            if ( (connected && inp) || (!connected && !inp) ) {
-                return i;
-            }
-        } else if (inputLabel == otherName) {
-            foundOther = i;
-        }
-    }
-    if (foundOther != -1) {
-        NodePtr inp = getInput(foundOther);
-        if ( (connected && inp) || (!connected && !inp) ) {
-            return foundOther;
-        }
-    }
-
-    int maxInputs = getNInputs();
-    for (int i = 0; i < maxInputs; ++i) {
-        NodePtr inp = getInput(i);
-        if ( (!inp && !connected) || (inp && connected) ) {
-            return i;
-        }
-    }
-
-    return -1;
-}
-
-int
-InspectorNode::getPreferredInput() const
-{
-    return getPreferredInputInternal(true);
-}
-
-int
-InspectorNode::getPreferredInputForConnection() const
-{
-    return getPreferredInputInternal(false);
-}
-
-void
-InspectorNode::getActiveInputs(int & a,
-                               int &b) const
-{
-    QMutexLocker l(&_activeInputsMutex);
-
-    a = _activeInputs[0];
-    b = _activeInputs[1];
-}
-
-void
-InspectorNode::setInputA(int inputNb)
-{
-    assert( QThread::currentThread() == qApp->thread() );
-    {
-        QMutexLocker l(&_activeInputsMutex);
-        _activeInputs[0] = inputNb;
-    }
-    Q_EMIT refreshOptionalState();
-}
-
-void
-InspectorNode::setInputB(int inputNb)
-{
-    assert( QThread::currentThread() == qApp->thread() );
-    {
-        QMutexLocker l(&_activeInputsMutex);
-        _activeInputs[1] = inputNb;
-    }
-    Q_EMIT refreshOptionalState();
-}
+} // autoConnect
 
 NATRON_NAMESPACE_EXIT

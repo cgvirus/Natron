@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +24,7 @@
 
 #include <AppKit/NSView.h>
 #include <AppKit/NSWindow.h>
+#include <objc/runtime.h>
 
 //See:
 //- https://trac.macports.org/ticket/43283
@@ -86,15 +88,24 @@ static NSString* const NSBackingPropertyOldScaleFactorKey =
 
 NATRON_NAMESPACE_ENTER
 
-bool
-QtMac::isHighDPIInternal(const QWidget* w) {
+double
+QtMac::getHighDPIScaleFactorInternal(const QWidget* w) {
     NSView* view = reinterpret_cast<NSView*>(w->winId());
     CGFloat scaleFactor = 1.0;
     if ([[view window] respondsToSelector: @selector(backingScaleFactor)])
         scaleFactor = [[view window] backingScaleFactor];
     
-    return (scaleFactor > 1.0);
+    return scaleFactor;
 }
+
+#if OBJC_OLD_DISPATCH_PROTOTYPES != 1
+void
+QtMac::setupDockClickHandler(void (*dockClickHandler)(void)) {
+    Class delClass = (Class)[[[NSApplication sharedApplication] delegate] class];
+    SEL shouldHandle = sel_registerName("applicationShouldHandleReopen:hasVisibleWindows:");
+    class_replaceMethod(delClass, shouldHandle, (IMP)dockClickHandler, "B@:");
+}
+#endif
 
 NATRON_NAMESPACE_EXIT
 

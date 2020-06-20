@@ -39,6 +39,7 @@
 #define FILETYPEMAINWINDOW_WIN_H
 
 #include "Global/Macros.h"
+#include "Global/Enums.h"
 #ifdef __NATRON_WIN32__
 
 // —— general includes —————————————————————————
@@ -73,7 +74,7 @@ NATRON_NAMESPACE_ENTER
    }
 
  *
- * Aditionally, the actions must be performed by overwriting one or more of:
+ * Additionally, the actions must be performed by overwriting one or more of:
  * @li ddeOpenFile
  * @li ddeNewFile
  * @li ddePrintFile
@@ -112,7 +113,8 @@ public:
         DDEPrint = 0x0004, /**< print a file via explorer*/
     };
 
-    Q_DECLARE_FLAGS(DdeCommands, DdeCommand)
+    DECLARE_FLAGS(DdeCommands, DdeCommand);
+
 
     // —— construction —————————————————————————
     /**
@@ -206,7 +208,7 @@ protected:
                           DdeCommands commands = DDEOpen);
 
     /**
-     * registeres one command for a given file type. It is called for the pre defined DDE command
+     * registers one command for a given file type. It is called for the pre defined DDE command
      * types from registerFileType. if more then the normal commands are needed, it can be called
      * in addition to registerFileType.
      *
@@ -277,7 +279,8 @@ private:
 
 NATRON_NAMESPACE_EXIT
 
-Q_DECLARE_OPERATORS_FOR_FLAGS(NATRON_NAMESPACE::DocumentWindow::DdeCommands)
+DECLARE_OPERATORS_FOR_FLAGS(NATRON_NAMESPACE::DocumentWindow::DdeCommands)
+
 
 #endif // __NATRON_WIN32__
 #endif // FILETYPEMAINWINDOW_WIN_H

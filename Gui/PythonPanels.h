@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,6 +41,7 @@ CLANG_DIAG_ON(uninitialized)
 #include "Engine/PyNode.h"
 #include "Engine/ScriptObject.h"
 #include "Engine/Knob.h"
+#include "Engine/PyPanelI.h"
 #include "Engine/ViewIdx.h"
 
 #include "Gui/PanelWidget.h"
@@ -56,11 +58,21 @@ GCC_DIAG_SUGGEST_OVERRIDE_OFF
     Q_OBJECT
 GCC_DIAG_SUGGEST_OVERRIDE_ON
 
-public:
+private: // derives from KnobHolder
+    // TODO: enable_shared_from_this
+    // constructors should be privatized in any class that derives from boost::enable_shared_from_this<>
 
     DialogParamHolder(const QString& uniqueID,
                       const AppInstancePtr& app,
                       UserParamHolder* widget);
+
+public:
+    static DialogParamHolderPtr create(const QString& uniqueID,
+                                       const AppInstancePtr& app,
+                                       UserParamHolder* widget)
+    {
+        return DialogParamHolderPtr( new DialogParamHolder(uniqueID, app, widget) );
+    }
 
     virtual ~DialogParamHolder();
 
@@ -72,11 +84,10 @@ private:
 
     virtual void initializeKnobs() OVERRIDE FINAL {}
 
-    virtual bool onKnobValueChanged(KnobI* k,
+    virtual bool onKnobValueChanged(const KnobIPtr& k,
                                     ValueChangedReasonEnum reason,
-                                    double time,
-                                    ViewSpec view,
-                                    bool originatedFromMainThread) OVERRIDE FINAL;
+                                    TimeValue time,
+                                    ViewSetSpec view) OVERRIDE FINAL;
     boost::scoped_ptr<DialogParamHolderPrivate> _imp;
 };
 
@@ -85,8 +96,9 @@ struct PyModalDialogPrivate;
 class PyModalDialog
     : public QDialog, public UserParamHolder
 {
+    GCC_DIAG_SUGGEST_OVERRIDE_OFF
     Q_OBJECT
-
+    GCC_DIAG_SUGGEST_OVERRIDE_ON
 public:
 
     PyModalDialog( Gui* gui,
@@ -102,7 +114,7 @@ public:
 
     void addWidget(QWidget* widget);
 
-    DialogParamHolder* getKnobsHolder() const;
+    DialogParamHolderPtr getKnobsHolder() const;
 
 private:
 
@@ -112,7 +124,7 @@ private:
 
 struct PyPanelPrivate;
 class PyPanel
-    : public QWidget, public UserParamHolder, public PanelWidget
+    : public QWidget, public UserParamHolder, public PanelWidget, public PyPanelI
 {
 GCC_DIAG_SUGGEST_OVERRIDE_OFF
     Q_OBJECT
@@ -127,15 +139,15 @@ public:
 
     virtual ~PyPanel();
 
-    QString save_serialization_thread() const;
+    virtual QString save_serialization_thread() const OVERRIDE FINAL;
 
-    virtual void restore(const QString& /*data*/) {}
+    virtual void restore(const QString& /*data*/) OVERRIDE {}
 
-    QString getPanelScriptName() const;
+    virtual QString getPanelScriptName() const OVERRIDE FINAL;
 
-    void setPanelLabel(const QString& label);
+    virtual void setPanelLabel(const QString& label) OVERRIDE FINAL;
 
-    QString getPanelLabel() const;
+    virtual QString getPanelLabel() const OVERRIDE FINAL;
 
     Param* getParam(const QString& scriptName) const;
     std::list<Param*> getParams() const;
@@ -145,6 +157,14 @@ public:
     void insertWidget(int index, QWidget* widget);
 
     void addWidget(QWidget* widget);
+
+    virtual KnobsVec getKnobs() const OVERRIDE FINAL;
+
+
+    virtual void setPythonFunction(const QString& function) OVERRIDE FINAL;
+
+    virtual QString getPythonFunction() const OVERRIDE FINAL;
+
 
 protected:
 

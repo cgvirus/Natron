@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,20 +44,6 @@ NATRON_NAMESPACE_ENTER
 class Variant
     : public QVariant
 {
-#if 0 // Variant is never serialized (although serialization is available from VariantSerialization.h)
-    template<class Archive>
-    void save(Archive & ar,
-              const unsigned int version) const;
-
-    template<class Archive>
-    void load(Archive & ar,
-              const unsigned int version);
-
-    template<class Archive>
-    void serialize(Archive & ar,
-                   const unsigned int version);
-#endif
-
 public:
 
     Variant()

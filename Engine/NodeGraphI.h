@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,6 +41,8 @@ public:
     virtual ~NodeGraphI() {}
 
     virtual void onNodesCleared() = 0;
+
+    virtual void createNodeGui(const NodePtr& node, const CreateNodeArgs& args) = 0;
 };
 
 NATRON_NAMESPACE_EXIT

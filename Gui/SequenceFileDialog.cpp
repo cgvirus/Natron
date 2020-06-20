@@ -1,6 +1,7 @@
 /* ***** BEGIN LICENSE BLOCK *****
  * This file is part of Natron <https://natrongithub.github.io/>,
- * Copyright (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
+ * (C) 2018-2020 The Natron developers
+ * (C) 2013-2018 INRIA and Alexandre Gauthier-Foichat
  *
  * Natron is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -92,26 +93,29 @@ CLANG_DIAG_ON(uninitialized)
 #include "Engine/KnobFile.h"
 #include "Engine/MemoryInfo.h" // printAsRAM
 #include "Engine/Node.h"
+#include "Engine/OutputSchedulerThread.h"
 #include "Engine/Project.h"
 #include "Engine/PyParameter.h" // StringParam
 #include "Engine/Settings.h"
+#include "Engine/RenderEngine.h"
 #include "Engine/Utils.h" // convertFromPlainText
 #include "Engine/ViewerInstance.h"
+#include "Engine/ViewerNode.h"
 
 #include "Gui/Button.h"
-#include "Gui/LineEdit.h"
 #include "Gui/ComboBox.h"
 #include "Gui/DialogButtonBox.h"
 #include "Gui/GuiApplicationManager.h"
 #include "Gui/Gui.h"
 #include "Gui/GuiAppInstance.h"
+#include "Gui/Label.h"
+#include "Gui/LineEdit.h"
+#include "Gui/Menu.h"
 #include "Gui/NodeGui.h"
 #include "Gui/PythonPanels.h"
+#include "Gui/TabWidget.h"
 #include "Gui/ViewerTab.h"
 #include "Gui/ViewerGL.h"
-#include "Gui/TabWidget.h"
-#include "Gui/Label.h"
-#include "Gui/Menu.h"
 #include "Global/QtCompat.h" // removeFileExtension
 
 #define FILE_DIALOG_DISABLE_ICONS
@@ -390,7 +394,7 @@ SequenceFileDialog::SequenceFileDialog( QWidget* parent, // necessary to transmi
         std::string varName = '[' + it->first + ']';
         _relativeChoice->addItem( QString::fromUtf8( varName.c_str() ) );
         if ( allowRelativePaths && !currentDirectory.compare(0, varName.size(), varName) ) {
-            _relativeChoice->setCurrentIndex_no_emit(i);
+            _relativeChoice->setCurrentIndex(i, false);
         }
     }
     if (!allowRelativePaths) {
@@ -416,7 +420,7 @@ SequenceFileDialog::SequenceFileDialog( QWidget* parent, // necessary to transmi
         _sequenceButton->setVisible(false);
     }
 
-    _view =  new SequenceDialogView(this);
+    _view =  new SequenceDialogView(gui, this);
 
     _model.reset( new FileSystemModel() );
     _model->initialize(this);
@@ -645,19 +649,19 @@ SequenceFileDialog::saveState() const
     QByteArray data;
     QDataStream stream(&data, QIODevice::WriteOnly);
 
-    QList<QUrl> urls;
+    KnobPathPtr favoriteKnob = appPTR->getCurrentSettings()->getFileDialogFavoritePathsKnob();
     std::vector<QUrl> stdUrls = _favoriteView->urls();
     for (unsigned int i = 0; i < stdUrls.size(); ++i) {
-        urls.push_back(stdUrls[i]);
+        favoriteKnob->appendPath(stdUrls[i].toLocalFile().toStdString());
     }
     stream << _centerSplitter->saveState();
-    stream << urls;
     stream << history();
     stream << currentDirectory().path();
     stream << _view->header()->saveState();
     stream << _relativeChoice->itemText( _relativeChoice->activeIndex() );
     stream << _sequenceButton->activeIndex();
 
+    appPTR->getCurrentSettings()->saveSettingsToFile();
     return data;
 }
 
@@ -675,13 +679,11 @@ SequenceFileDialog::restoreState(const QByteArray & state,
     }
     QByteArray splitterState;
     QByteArray headerData;
-    QList<QUrl> bookmarks;
     QStringList history;
     QString currentDirectory;
     QString relativeChoice;
     int sequenceMode_i;
     stream >> splitterState
-    >> bookmarks
     >> history
     >> currentDirectory
     >> headerData
@@ -727,15 +729,15 @@ SequenceFileDialog::restoreState(const QByteArray & state,
         }
     }
 
-    for (int i = 0; i < bookmarks.count(); ++i) {
-        QString urlPath = bookmarks[i].path();
+    std::list<std::vector<std::string> > bookmarks;
+    appPTR->getCurrentSettings()->getFileDialogFavoritePathsKnob()->getTable(&bookmarks);
 
-        // On windows url.path() will return something starting with a /
-#ifdef __NATRON_WIN32__
-        if ( urlPath.startsWith( QLatin1Char('/') ) ) {
-            urlPath.remove(0, 1);
+    for (std::list<std::vector<std::string> >::const_iterator it = bookmarks.begin(); it!=bookmarks.end(); ++it) {
+        if (it->size() != 1) {
+            continue;
         }
-#endif
+        QString urlPath = QString::fromUtf8((*it)[0].c_str());
+
         if ( !urlPath.isEmpty() ) {
             if ( (urlPath.size() > 1) && ( urlPath.endsWith( QLatin1Char('/') ) || urlPath.endsWith( QLatin1Char('\\') ) ) ) {
                 urlPath = urlPath.remove(urlPath.size() - 1, 1);
@@ -743,13 +745,7 @@ SequenceFileDialog::restoreState(const QByteArray & state,
             bool alreadyFound = false;
 
             for (U32 j = 0; j < stdBookMarks.size(); ++j) {
-                QString otherUrl = stdBookMarks[j].path();
-                // On windows url.path() will return something starting with a /
-#ifdef __NATRON_WIN32__
-                if ( otherUrl.startsWith( QLatin1Char('/') ) ) {
-                    otherUrl.remove(0, 1);
-                }
-#endif
+                QString otherUrl = QtCompat::toLocalFileUrlFixed(stdBookMarks[j]).toLocalFile();
 
                 if ( (otherUrl.size() > 1) && ( otherUrl.endsWith( QLatin1Char('/') ) || otherUrl.endsWith( QLatin1Char('\\') ) ) ) {
                     otherUrl = otherUrl.remove(otherUrl.size() - 1, 1);
@@ -762,7 +758,7 @@ SequenceFileDialog::restoreState(const QByteArray & state,
 
             QDir dir(urlPath);
             if ( !alreadyFound && dir.exists() ) {
-                stdBookMarks.push_back( bookmarks[i] );
+                stdBookMarks.push_back( QUrl::fromLocalFile(QString::fromUtf8((*it)[0].c_str())) );
             }
         }
     }
@@ -975,7 +971,7 @@ SequenceFileDialog::onSelectionChanged()
             QString extension = item->fileExtension();
             for (int i = 0; i < _fileExtensionCombo->count(); ++i) {
                 if (_fileExtensionCombo->itemText(i) == extension) {
-                    _fileExtensionCombo->setCurrentIndex_no_emit(i);
+                    _fileExtensionCombo->setCurrentIndex(i, false);
                     break;
                 }
             }
@@ -1110,7 +1106,7 @@ SequenceFileDialog::setRootIndex(const QModelIndex & index)
     _view->update();
 }
 
-SequenceDialogView::SequenceDialogView(SequenceFileDialog* fd)
+SequenceDialogView::SequenceDialogView(Gui* /*gui*/, SequenceFileDialog* fd)
     : QTreeView(fd), _fd(fd)
 {
     setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -1126,6 +1122,7 @@ SequenceDialogView::SequenceDialogView(SequenceFileDialog* fd)
     setDragDropMode(QAbstractItemView::DragOnly);
     setAttribute(Qt::WA_MacShowFocusRect, 0);
     setAcceptDrops(true);
+
 }
 
 void
@@ -1693,13 +1690,7 @@ SequenceFileDialog::onLookingComboboxChanged(const QString & /*path*/)
     QUrl url = index.data(UrlModel::UrlRole).toUrl();
     url = QtCompat::toLocalFileUrlFixed(url);
 
-    QString urlPath = url.path();
-    // On windows url.path() will return something starting with a /
-#ifdef __NATRON_WIN32__
-    if ( urlPath.startsWith( QLatin1Char('/') ) ) {
-        urlPath.remove(0, 1);
-    }
-#endif
+    QString urlPath = QtCompat::toLocalFileUrlFixed(url).toLocalFile();
     setDirectory(urlPath);
 }
 
@@ -1897,14 +1888,8 @@ SequenceFileDialog::doubleClickOpen(const QModelIndex & /*index*/)
 void
 SequenceFileDialog::seekUrl(const QUrl & url)
 {
-    QString urlPath =  url.toLocalFile();
+    QString urlPath =  QtCompat::toLocalFileUrlFixed(url).toLocalFile();
 
-    // On windows url.path() will return something starting with a /
-#ifdef __NATRON_WIN32__
-    if ( urlPath.startsWith( QLatin1Char('/') ) ) {
-        urlPath.remove(0, 1);
-    }
-#endif
     setDirectory(urlPath);
 }
 
@@ -1991,7 +1976,7 @@ UrlModel::setData(const QModelIndex &index,
 {
     if (value.type() == QVariant::Url) {
         QUrl url = value.toUrl();
-        QModelIndex dirIndex = fileSystemModel->index( url.toLocalFile() );
+        QModelIndex dirIndex = fileSystemModel->index( QtCompat::toLocalFileUrlFixed(url).toLocalFile() );
         QStandardItemModel::setData(index, QDir::toNativeSeparators( fileSystemModel->data(dirIndex, QFileSystemModel::FilePathRole).toString() ), Qt::ToolTipRole);
         //  QStandardItemModel::setData(index, fileSystemModel->data(dirIndex).toString());
         QVariant deco = fileSystemModel->data(dirIndex, Qt::DecorationRole);
@@ -2019,7 +2004,7 @@ UrlModel::setUrl(const QModelIndex &index,
         QIcon newIcon;
         if ( !dirIndex.isValid() ) {
             newIcon = fileSystemModel->iconProvider()->icon(QFileIconProvider::Folder);
-            newName = QFileInfo( url.toLocalFile() ).fileName();
+            newName = QFileInfo( QtCompat::toLocalFileUrlFixed(url).toLocalFile() ).fileName();
             bool invalidUrlFound = false;
             for (unsigned int i = 0; i < invalidUrls.size(); ++i) {
                 if (invalidUrls[i] == url) {
@@ -2075,7 +2060,7 @@ UrlModel::addUrls(const std::vector<QUrl> &list,
     }
     startRow = qMin( startRow, rowCount() );
 
-    ///Remove already existant URLS
+    ///Remove already existent URLS
     ///Result is a pair new Url, clean url path
     std::vector<std::pair<QUrl, QString> > realList;
     for (U32 i = 0; i < list.size(); ++i) {
@@ -2084,7 +2069,7 @@ UrlModel::addUrls(const std::vector<QUrl> &list,
             continue;
         }
 
-        const QString cleanUrl = QDir::cleanPath( url.toLocalFile() );
+        const QString cleanUrl = QDir::cleanPath( QtCompat::toLocalFileUrlFixed(url).toLocalFile() );
         QModelIndex idx = fileSystemModel->index(cleanUrl);
         if ( !cleanUrl.isEmpty() && !fileSystemModel->isDir(idx) ) {
             continue;
@@ -2408,22 +2393,11 @@ FavoriteView::selectUrl(const QUrl &url)
 
     selectionModel()->clear();
 
-    QString urlPath = url.toLocalFile();
-    // On windows url.path() will return something starting with a /
-#ifdef __NATRON_WIN32__
-    if ( urlPath.startsWith( QLatin1Char('/') ) ) {
-        urlPath.remove(0, 1);
-    }
-#endif
+    QString urlPath = QtCompat::toLocalFileUrlFixed(url).toLocalFile();
 
     for (int i = 0; i < model()->rowCount(); ++i) {
-        QString otherUrlPath =  model()->index(i, 0).data(UrlModel::UrlRole).toUrl().toLocalFile();
-        // On windows url.path() will return something starting with a /
-#ifdef __NATRON_WIN32__
-        if ( otherUrlPath.startsWith( QLatin1Char('/') ) ) {
-            otherUrlPath.remove(0, 1);
-        }
-#endif
+        QUrl otherUrl = model()->index(i, 0).data(UrlModel::UrlRole).toUrl();
+        QString otherUrlPath =  QtCompat::toLocalFileUrlFixed(otherUrl).toLocalFile();
 
         if (otherUrlPath == urlPath) {
             selectionModel()->select(model()->index(i, 0), QItemSelectionModel::Select);
@@ -2859,7 +2833,7 @@ SequenceFileDialog::onSelectionLineEditing(const QString & text)
     QString extension = QtCompat::removeFileExtension(textCpy);
     for (int i = 0; i < _fileExtensionCombo->count(); ++i) {
         if (_fileExtensionCombo->itemText(i) == extension) {
-            _fileExtensionCombo->setCurrentIndex_no_emit(i);
+            _fileExtensionCombo->setCurrentIndex(i, false);
             break;
         }
     }
@@ -2891,9 +2865,10 @@ SequenceFileDialog::onTogglePreviewButtonClicked(bool toggled)
 void
 SequenceFileDialog::createViewerPreviewNode()
 {
-    CreateNodeArgs args( PLUGINID_NATRON_VIEWER, NodeCollectionPtr() );
-    args.setProperty<std::string>(kCreateNodeArgsPropNodeInitialName, NATRON_FILE_DIALOG_PREVIEW_VIEWER_NAME);
-    args.setProperty<bool>(kCreateNodeArgsPropOutOfProject, true);
+    CreateNodeArgsPtr args(CreateNodeArgs::create( PLUGINID_NATRON_VIEWER_GROUP, NodeCollectionPtr() ));
+    args->setProperty<std::string>(kCreateNodeArgsPropNodeInitialName, NATRON_FILE_DIALOG_PREVIEW_VIEWER_NAME);
+    args->setProperty<bool>(kCreateNodeArgsPropVolatile, true);
+    args->setProperty<bool>(kCreateNodeArgsPropSubGraphOpened, false);
 
     _preview->viewerNodeInternal = _gui->getApp()->createNode(args);
     assert(_preview->viewerNodeInternal);
@@ -2902,13 +2877,13 @@ SequenceFileDialog::createViewerPreviewNode()
     assert(_preview->viewerNode);
     _preview->viewerNode->hideGui();
 
-    ViewerInstance* viewerInstance = _preview->viewerNodeInternal->isEffectViewer();
-    assert(viewerInstance);
-    if (!viewerInstance) {
+    ViewerNodePtr viewerNode = _preview->viewerNodeInternal->isEffectViewerNode();
+    assert(viewerNode);
+    if (!viewerNode) {
         // coverity[dead_error_line]
         return;
     }
-    ViewerGL* viewerGL = dynamic_cast<ViewerGL*>( viewerInstance->getUiContext() );
+    ViewerGL* viewerGL = dynamic_cast<ViewerGL*>( viewerNode->getUiContext() );
     assert(viewerGL);
     if (!viewerGL) {
         // coverity[dead_error_line]
@@ -2924,9 +2899,7 @@ SequenceFileDialog::createViewerPreviewNode()
     ///Set a custom timeline so that it is not in synced with the rest of the viewers of the app
     TimeLinePtr newTimeline( new TimeLine(NULL) );
     _preview->viewerUI->setCustomTimeline(newTimeline);
-    _preview->viewerUI->setClipToProject(false);
     _preview->viewerUI->setLeftToolbarVisible(false);
-    _preview->viewerUI->setRightToolbarVisible(false);
     _preview->viewerUI->setTopToolbarVisible(false);
     _preview->viewerUI->setInfobarVisible(false);
     _preview->viewerUI->setPlayerVisible(false);
@@ -2940,49 +2913,22 @@ SequenceFileDialog::createViewerPreviewNode()
 NodePtr
 SequenceFileDialog::findOrCreatePreviewReader(const std::string& filetype)
 {
-#ifndef NATRON_ENABLE_IO_META_NODES
-    std::map<std::string, std::string> readersForFormat;
-    appPTR->getCurrentSettings()->getFileFormatsForReadingAndReader(&readersForFormat);
-    if ( !filetype.empty() ) {
-        std::map<std::string, std::string>::iterator found = readersForFormat.find(filetype);
-        if ( found == readersForFormat.end() ) {
-            return NodePtr();
-        }
-        std::map<std::string, NodePtr>::iterator foundReader = _preview->readerNodes.find(found->second);
-        if ( foundReader == _preview->readerNodes.end() ) {
-            CreateNodeArgs args( QString::fromUtf8( found->second.c_str() ), eCreateNodeReasonInternal, NodeCollectionPtr() );
-            args.fixedName = QString::fromUtf8(NATRON_FILE_DIALOG_PREVIEW_READER_NAME) +  QString::fromUtf8( found->first.c_str() );
-            args.createGui = false;
-            args.addToProject = false;
-            NodePtr reader = _gui->getApp()->createNode(args);
-            if (reader) {
-                _preview->readerNodes.insert( std::make_pair(found->second, reader) );
-            }
 
-            return reader;
-        } else {
-            return foundReader->second;
-        }
-    }
-
-    return NodePtr();
-#else
     if (_preview->readerNode) {
         return _preview->readerNode;
     }
     Q_UNUSED(filetype);
-    CreateNodeArgs args( PLUGINID_NATRON_READ, NodeCollectionPtr() );
-    args.setProperty<bool>(kCreateNodeArgsPropOutOfProject, true);
-    args.setProperty<bool>(kCreateNodeArgsPropNoNodeGUI, true);
-    args.setProperty<bool>(kCreateNodeArgsPropSilent, true);
-    args.setProperty<std::string>(kCreateNodeArgsPropNodeInitialName, NATRON_FILE_DIALOG_PREVIEW_READER_NAME);
+    CreateNodeArgsPtr args(CreateNodeArgs::create( PLUGINID_NATRON_READ, NodeCollectionPtr() ));
+    args->setProperty<bool>(kCreateNodeArgsPropVolatile, true);
+    args->setProperty<bool>(kCreateNodeArgsPropNoNodeGUI, true);
+    args->setProperty<bool>(kCreateNodeArgsPropSilent, true);
+    args->setProperty<std::string>(kCreateNodeArgsPropNodeInitialName, NATRON_FILE_DIALOG_PREVIEW_READER_NAME);
     NodePtr reader = _gui->getApp()->createNode(args);
     if (reader) {
         _preview->readerNode = reader;
     }
 
     return _preview->readerNode;
-#endif
 }
 
 void
@@ -3007,18 +2953,24 @@ SequenceFileDialog::refreshPreviewAfterSelectionChange()
     NodePtr reader = findOrCreatePreviewReader(ext);
     if (reader) {
         KnobIPtr foundFileKnob = reader->getKnobByName(kOfxImageEffectFileParamName);
-        KnobFile* fileKnob = dynamic_cast<KnobFile*>( foundFileKnob.get() );
+        KnobFilePtr fileKnob = toKnobFile( foundFileKnob );
         if (fileKnob) {
             fileKnob->setValue(pattern);
         }
         _preview->viewerNode->getNode()->connectInput(reader, 0);
 
-        double firstFrame, lastFrame;
-        reader->getEffectInstance()->getFrameRange_public(reader->getHashValue(), &firstFrame, &lastFrame);
-        _preview->viewerUI->setTimelineBounds(firstFrame, lastFrame);
-        _preview->viewerUI->centerOn(firstFrame, lastFrame);
+        RangeD range = {1., 1.};
+        {
+            GetFrameRangeResultsPtr results;
+            ActionRetCodeEnum stat = reader->getEffectInstance()->getFrameRange_public(&results);
+            if (!isFailureRetCode(stat)) {
+                results->getFrameRangeResults(&range);
+            }
+        }
+        _preview->viewerUI->setTimelineBounds(range.min, range.max);
+        _preview->viewerUI->centerOn(range.min, range.max);
     }
-    _preview->viewerUI->getInternalNode()->renderCurrentFrame(true);
+    _preview->viewerUI->getInternalNode()->getNode()->getRenderEngine()->renderCurrentFrame();
 }
 
 ///Reset everything as it was prior to the dialog being opened, also avoid the nodes being deleted
